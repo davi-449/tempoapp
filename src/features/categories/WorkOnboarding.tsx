@@ -21,7 +21,6 @@ export function WorkOnboarding({ category, onComplete }: WorkOnboardingProps) {
   const [direction, setDirection] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Form State
   const [jobTitle, setJobTitle] = useState('');
   const [companyName, setCompanyName] = useState('');
   const [days, setDays] = useState<number[]>([]);
@@ -46,54 +45,59 @@ export function WorkOnboarding({ category, onComplete }: WorkOnboardingProps) {
       const userRes = await supabase.auth.getUser();
       const userId = userRes.data.user?.id;
 
-      // 1. Atualizar ou Inserir a Categoria com UUID real
-      const currentSettings = (category as any).settings || {};
-      const newSettings = {
-         ...currentSettings,
-         isConfigured: true,
-         type: 'work',
-         schedule: { days, jobTitle, companyName, timeStart, timeEnd }
-      };
-
+      // Ghost Insert if default category
       let realCategoryId = category.id;
       if (category.id.startsWith('default-')) {
-        const { data, error } = await (supabase as any).from('categories').insert({
-          name: category.name,
-          color: category.color,
-          emoji: category.emoji,
-          settings: newSettings,
-          user_id: userId
-        }).select().single();
-        if (error) throw error;
-        realCategoryId = data.id;
-      } else {
-        await (supabase as any).from('categories').update({ settings: newSettings }).eq('id', realCategoryId);
+        try {
+          const { data, error } = await supabase.from('categories').insert({
+            name: category.name,
+            color: category.color,
+            emoji: category.emoji,
+            user_id: userId
+          } as any).select().single();
+          if (!error && data) realCategoryId = data.id;
+        } catch { /* fallback */ }
       }
 
-      const insertPayloads = [];
+      // Try saving settings to DB (resilient)
+      try {
+        await (supabase as any).from('categories').update({ 
+          settings: {
+            isConfigured: true,
+            type: 'work',
+            schedule: { days, jobTitle, companyName, timeStart, timeEnd }
+          }
+        }).eq('id', realCategoryId);
+      } catch { /* settings column may not exist */ }
+
+      // localStorage fallback
+      const configured = JSON.parse(localStorage.getItem('configured_categories') || '{}');
+      configured[category.id] = {
+        isConfigured: true,
+        type: 'work',
+        schedule: { days, jobTitle, companyName, timeStart, timeEnd }
+      };
+      localStorage.setItem('configured_categories', JSON.stringify(configured));
+
+      // Create tasks
+      const insertPayloads: any[] = [];
       const today = new Date();
-      
       const parseTime = (timeStr: string) => {
         const [h, m] = timeStr.split(':').map(Number);
         return { h, m };
       };
-
       const start = parseTime(timeStart);
 
-      // Create main "Work Shift" events for the next 14 days
       for (let i = 0; i < 14; i++) {
         const targetDate = new Date(today);
         targetDate.setDate(today.getDate() + i);
         
         if (days.includes(targetDate.getDay())) {
            targetDate.setHours(start.h, start.m, 0, 0);
-
            const title = `${jobTitle || 'Expediente'} @ ${companyName || 'Trabalho'}`;
-           
            insertPayloads.push({
-             title: title,
-             category: category.name, // String keep
-             category_id: realCategoryId,
+             title,
+             category: category.name,
              status: 'pending',
              start_time: targetDate.toISOString(),
              task_type: 'task',
@@ -103,7 +107,8 @@ export function WorkOnboarding({ category, onComplete }: WorkOnboardingProps) {
       }
 
       if (insertPayloads.length > 0) {
-        await supabase.from('tasks').insert(insertPayloads);
+        const { error } = await supabase.from('tasks').insert(insertPayloads);
+        if (error) console.error('Task insert error:', error);
       }
       
       onComplete();
@@ -141,13 +146,10 @@ export function WorkOnboarding({ category, onComplete }: WorkOnboardingProps) {
              <div className="space-y-2 text-center">
                <h2 className="text-2xl font-bold tracking-tight">Onde você atua?</h2>
              </div>
-             
              <div className="space-y-4 w-full px-2">
                 <input type="text" autoFocus className="w-full text-center text-xl bg-transparent border-b-2 font-medium focus:outline-none focus:border-foreground pb-2 placeholder:text-muted-foreground/40 transition-colors" placeholder="Empresa (Ex: Google)" value={companyName} onChange={(e) => setCompanyName(e.target.value)} />
-                
                 <input type="text" className="w-full mt-6 text-center text-xl bg-transparent border-b-2 font-medium focus:outline-none focus:border-foreground pb-2 placeholder:text-muted-foreground/40 transition-colors" placeholder="Cargo (Ex: Desenvolvedor)" value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} />
              </div>
-
              <div className="mt-auto pt-8">
               <Button size="lg" className="w-full rounded-2xl py-6" disabled={!jobTitle.trim() && !companyName.trim()} onClick={() => paginate(1)}>
                 Próximo <ArrowRight className="ml-2 h-4 w-4" />

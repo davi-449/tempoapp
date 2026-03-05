@@ -25,8 +25,6 @@ export function WorkoutOnboarding({ category, onComplete }: WorkoutOnboardingPro
   const [days, setDays] = useState<number[]>([]);
   const [division, setDivision] = useState<string>('');
   const [duration, setDuration] = useState<number>(60);
-  
-  // New Metrics
   const [weight, setWeight] = useState('');
   const [height, setHeight] = useState('');
 
@@ -48,38 +46,48 @@ export function WorkoutOnboarding({ category, onComplete }: WorkoutOnboardingPro
       const userRes = await supabase.auth.getUser();
       const userId = userRes.data.user?.id;
 
-      // Cálculo de IMC básico
       const w = parseFloat(weight);
       const h = parseFloat(height) / 100;
       const bmi = (w > 0 && h > 0) ? (w / (h * h)).toFixed(1) : null;
 
-      // 1. Atualizar ou Inserir a Categoria com UUID real
-      const currentSettings = (category as any).settings || {};
-      const newSettings = {
-         ...currentSettings,
-         isConfigured: true,
-         type: 'workout',
-         schedule: { days, division, duration },
-         healthMetrics: { weight, height, bmi }
-      };
-
+      // Resolve real category ID (Ghost Insert)
       let realCategoryId = category.id;
       if (category.id.startsWith('default-')) {
-        const { data, error } = await (supabase as any).from('categories').insert({
-          name: category.name,
-          color: category.color,
-          emoji: category.emoji,
-          settings: newSettings,
-          user_id: userId
-        }).select().single();
-        if (error) throw error;
-        realCategoryId = data.id;
-      } else {
-        await (supabase as any).from('categories').update({ settings: newSettings }).eq('id', realCategoryId);
+        try {
+          const { data, error } = await supabase.from('categories').insert({
+            name: category.name,
+            color: category.color,
+            emoji: category.emoji,
+            user_id: userId
+          } as any).select().single();
+          if (!error && data) realCategoryId = data.id;
+        } catch { /* fallback: use string-based */ }
       }
 
-      // 2. Gerar Tarefas com o realCategoryId
-      const insertPayloads = [];
+      // Persistir settings no DB (resiliente)
+      try {
+        await (supabase as any).from('categories').update({ 
+          settings: {
+            isConfigured: true,
+            type: 'workout',
+            schedule: { days, division, duration },
+            healthMetrics: { weight, height, bmi }
+          }
+        }).eq('id', realCategoryId);
+      } catch { /* coluna settings pode não existir ainda */ }
+
+      // Marcar no localStorage como fallback
+      const configured = JSON.parse(localStorage.getItem('configured_categories') || '{}');
+      configured[category.id] = {
+        isConfigured: true,
+        type: 'workout',
+        schedule: { days, division, duration },
+        healthMetrics: { weight, height, bmi }
+      };
+      localStorage.setItem('configured_categories', JSON.stringify(configured));
+
+      // Gerar tarefas
+      const insertPayloads: any[] = [];
       const today = new Date();
       
       for (let i = 0; i < 28; i++) {
@@ -88,17 +96,14 @@ export function WorkoutOnboarding({ category, onComplete }: WorkoutOnboardingPro
         
         if (days.includes(targetDate.getDay())) {
            targetDate.setHours(18, 0, 0, 0);
-
            let titleBase = `Meu Treino: ${division}`;
            if (division === 'ABC') {
              const workoutDay = ['A (Peito/Tríceps)', 'B (Costas/Bíceps)', 'C (Pernas/Ombro)'];
              titleBase = `Treino ${workoutDay[i % 3]}`;
            }
-
            insertPayloads.push({
              title: titleBase,
-             category: category.name, // Keep string backward compat for UI if needed, but DB uses category_id primarily now if column exists. Wait, the DB only uses 'category' as string per the current schema, unless 'category_id' was added. Let's send both.
-             category_id: realCategoryId,
+             category: category.name,
              status: 'pending',
              start_time: targetDate.toISOString(),
              estimated_duration_minutes: duration,
@@ -109,7 +114,8 @@ export function WorkoutOnboarding({ category, onComplete }: WorkoutOnboardingPro
       }
 
       if (insertPayloads.length > 0) {
-        await supabase.from('tasks').insert(insertPayloads);
+        const { error } = await supabase.from('tasks').insert(insertPayloads);
+        if (error) console.error('Task insert error:', error);
       }
       
       onComplete();
@@ -136,8 +142,7 @@ export function WorkoutOnboarding({ category, onComplete }: WorkoutOnboardingPro
               Diga-me suas medidas e horários. Montarei 4 semanas de treinos hiper focados pra você.
             </p>
             <Button size="lg" className="w-full mt-4 py-6 rounded-2xl" onClick={() => paginate(1)}>
-               Montar Grade
-              <ArrowRight className="ml-2 h-4 w-4" />
+               Montar Grade <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           </div>
         );
@@ -177,15 +182,7 @@ export function WorkoutOnboarding({ category, onComplete }: WorkoutOnboardingPro
              </div>
              <div className="flex flex-wrap gap-3 justify-center mt-4">
                 {weekDays.map((d, index) => (
-                  <button
-                    key={d}
-                    onClick={() => toggleDay(index)}
-                    className={`h-14 w-14 rounded-full font-medium border-2 transition-all ${
-                      days.includes(index) 
-                        ? 'border-foreground bg-foreground text-background scale-105 shadow-xl' 
-                        : 'border-border/50 bg-white text-muted-foreground hover:border-foreground/30'
-                    }`}
-                  >
+                  <button key={d} onClick={() => toggleDay(index)} className={`h-14 w-14 rounded-full font-medium border-2 transition-all ${days.includes(index) ? 'border-foreground bg-foreground text-background scale-105 shadow-xl' : 'border-border/50 bg-white text-muted-foreground hover:border-foreground/30'}`}>
                     {d}
                   </button>
                 ))}

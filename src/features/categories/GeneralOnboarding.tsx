@@ -23,7 +23,6 @@ export function GeneralOnboarding({ category, onComplete }: GeneralOnboardingPro
   const [direction, setDirection] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Form State
   const [goal, setGoal] = useState<string>('');
   const [frequency, setFrequency] = useState<RoutineFrequency | null>(null);
 
@@ -39,30 +38,34 @@ export function GeneralOnboarding({ category, onComplete }: GeneralOnboardingPro
       const userRes = await supabase.auth.getUser();
       const userId = userRes.data.user?.id;
 
-      const currentSettings = (category as any).settings || {};
-      const newSettings = {
-         ...currentSettings,
-         isConfigured: true,
-         goal,
-         frequency
-      };
-
+      // Ghost Insert if default
       let realCategoryId = category.id;
       if (category.id.startsWith('default-')) {
-        const { data, error } = await (supabase as any).from('categories').insert({
-          name: category.name,
-          color: category.color,
-          emoji: category.emoji,
-          settings: newSettings,
-          user_id: userId
-        }).select().single();
-        if (error) throw error;
-        realCategoryId = data.id;
-      } else {
-        await (supabase as any).from('categories').update({ settings: newSettings }).eq('id', realCategoryId);
+        try {
+          const { data, error } = await supabase.from('categories').insert({
+            name: category.name,
+            color: category.color,
+            emoji: category.emoji,
+            user_id: userId
+          } as any).select().single();
+          if (!error && data) realCategoryId = data.id;
+        } catch { /* fallback */ }
       }
 
-      const insertPayloads = [];
+      // Try saving settings (resilient)
+      try {
+        await (supabase as any).from('categories').update({ 
+          settings: { isConfigured: true, goal, frequency }
+        }).eq('id', realCategoryId);
+      } catch { /* settings column may not exist */ }
+
+      // localStorage fallback
+      const configured = JSON.parse(localStorage.getItem('configured_categories') || '{}');
+      configured[category.id] = { isConfigured: true, goal, frequency };
+      localStorage.setItem('configured_categories', JSON.stringify(configured));
+
+      // Generate tasks
+      const insertPayloads: any[] = [];
       const today = new Date();
       let daysCount = 0;
       
@@ -79,11 +82,9 @@ export function GeneralOnboarding({ category, onComplete }: GeneralOnboardingPro
       for (let i = 0; i < daysCount; i++) {
          const targetDate = new Date();
          targetDate.setDate(today.getDate() + (i * Math.floor(14/daysCount)));
-         
          insertPayloads.push({
            title: `Minha Rotina de ${category.name}`,
-           category: category.name, // Keep string for any old components that show tag string
-           category_id: realCategoryId,
+           category: category.name,
            status: 'pending',
            description: goal ? `Meta: ${goal}` : '',
            start_time: targetDate.toISOString(),
@@ -93,7 +94,8 @@ export function GeneralOnboarding({ category, onComplete }: GeneralOnboardingPro
       }
 
       if (insertPayloads.length > 0) {
-        await supabase.from('tasks').insert(insertPayloads);
+        const { error } = await supabase.from('tasks').insert(insertPayloads);
+        if (error) console.error('Task insert error:', error);
       }
       
       onComplete();
@@ -130,7 +132,7 @@ export function GeneralOnboarding({ category, onComplete }: GeneralOnboardingPro
           <div className="flex flex-col space-y-8 flex-1 py-10 h-full min-h-[400px]">
             <div className="space-y-2 text-center">
                <h2 className="text-2xl font-bold tracking-tight">Qual sua meta principal?</h2>
-               <p className="text-muted-foreground text-sm">Resuma o que deseja alcançar (ex: perder peso, fechar projetos, estudar React).</p>
+               <p className="text-muted-foreground text-sm">Resuma o que deseja alcançar.</p>
             </div>
             <input type="text" autoFocus className="w-full text-center text-xl bg-transparent border-b-2 font-medium focus:outline-none focus:border-foreground pb-2 placeholder:text-muted-foreground/40 transition-colors" placeholder="Ex: Evoluir hoje" value={goal} onChange={(e) => setGoal(e.target.value)} />
             <div className="mt-auto pt-8">
@@ -158,7 +160,7 @@ export function GeneralOnboarding({ category, onComplete }: GeneralOnboardingPro
              </div>
              <div className="mt-auto pt-8">
               <Button size="lg" className="w-full rounded-2xl py-6" disabled={!frequency || isSubmitting} onClick={handleFinish}>
-                {isSubmitting ? <Loader2 className="animate-spin" /> : 'Finalizar Setup Genérico'}
+                {isSubmitting ? <Loader2 className="animate-spin" /> : 'Finalizar Setup'}
               </Button>
             </div>
            </div>

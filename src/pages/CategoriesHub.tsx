@@ -97,7 +97,9 @@ export default function CategoriesHub() {
   };
 
   const renderCategoryContent = (category: Category) => {
-    const isConfigured = (category as any).settings?.isConfigured;
+    // Check DB settings first, then localStorage fallback
+    const configuredFromLS = JSON.parse(localStorage.getItem('configured_categories') || '{}');
+    const isConfigured = (category as any).settings?.isConfigured || configuredFromLS[category.id]?.isConfigured;
 
     if (!isConfigured) {
        return (
