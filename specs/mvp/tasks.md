@@ -8,10 +8,10 @@
 
 ## Fase 2: Integrações e Backend (Edge Functions)
 
-- [ ] 2.1 Criar Edge Function de "Motor de Conflito" (cálculo de datas básicas).
-- [ ] 2.2 Integrar Google Maps API Routes / Distance Matrix na Edge Function.
-- [ ] 2.3 Implementar IA generativa básica (via Google Gemini) em Edge Function para sugerir durações a partir do título da tarefa de forma invisível.
-- [ ] 2.4 Setup de OAuth Google Calendar (Read).
+- [x] 2.1 Criar Edge Function de "Motor de Conflito" (cálculo de datas básicas).
+- [x] 2.2 Integrar Google Maps API Routes / Distance Matrix na Edge Function.
+- [x] 2.3 Implementar IA generativa básica (via Google Gemini) em Edge Function para sugerir durações a partir do título da tarefa de forma invisível.
+- [ ] 2.4 Setup de OAuth Google Calendar (Read) - [Pendente configuração manual no painel do Supabase]
 
 ## Fase 3: UI Foundation (Stitch MCP)
 
