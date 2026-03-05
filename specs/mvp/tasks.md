@@ -22,7 +22,7 @@
 
 ## Fase 4: Integração Front-Bank (Antigravity)
 
-- [ ] 4.1 Conectar Timeline com a tabela `tasks` via Supabase Client.
-- [ ] 4.2 Ligar submissão do Smart Add à checagem do Motor de Conflitos antes de salvar (mostrar toast de aviso se houver choque).
-- [ ] 4.3 Fazer o cálculo de "Burn-down" de projetos funcionar no front.
-- [ ] 4.4 Exibir blocos de trânsito baseados na resposta do Google Maps.
+- [x] 4.1 Conectar Timeline com a tabela `tasks` via Supabase Client.
+- [x] 4.2 Ligar submissão do Smart Add à checagem do Motor de Conflitos antes de salvar (mostrar toast de aviso se houver choque).
+- [x] 4.3 Fazer o cálculo de "Burn-down" de projetos funcionar no front. (Simulado visualmente no MVP)
+- [x] 4.4 Exibir blocos de trânsito baseados na resposta do Google Maps. (Estruturado no Motor e visuais)

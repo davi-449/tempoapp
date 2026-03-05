@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { supabase } from "@/integrations/supabase/client";
 
 type TaskCategory = 'trabalho' | 'faculdade' | 'pessoal' | 'treino';
 
@@ -19,14 +20,57 @@ const CATEGORY_COLORS: Record<TaskCategory, string> = {
   treino: "bg-orange-500 hover:bg-orange-600 text-white"
 };
 
-// Mock data for the MVP UI
-const MOCK_TASKS: Task[] = [
-  { id: '1', title: 'Reunião de Alinhamento (CRM)', category: 'trabalho', startTime: '09:00', durationMins: 45 },
-  { id: '2', title: 'Academia (Pernas)', category: 'treino', startTime: '12:00', durationMins: 60 },
-  { id: '3', title: 'Aula de Algoritmos', category: 'faculdade', startTime: '19:00', durationMins: 120 },
-];
-
 export const Timeline = () => {
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const fetchTasks = async () => {
+    try {
+      setIsLoading(true);
+      const startOfDay = new Date();
+      startOfDay.setHours(0, 0, 0, 0);
+
+      const endOfDay = new Date();
+      endOfDay.setHours(23, 59, 59, 999);
+
+      const { data, error } = await supabase
+        .from('tasks')
+        .select('*')
+        //.gte('start_time', startOfDay.toISOString()) // Removed for MVP so any task shows up if created
+        //.lte('start_time', endOfDay.toISOString())
+        .order('start_time', { ascending: true });
+
+      if (error) {
+        console.error("Error fetching tasks:", error);
+        return;
+      }
+
+      const formatted = (data || []).map(t => ({
+        id: t.id,
+        title: t.title,
+        category: t.category,
+        startTime: new Date(t.start_time).toLocaleTimeString('pt-BR', { hour: '2-digit', minute:'2-digit' }),
+        durationMins: t.estimated_duration_minutes || 30
+      }));
+
+      setTasks(formatted);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchTasks();
+    
+    // Listen to our custom event
+    const handleTaskAdded = () => fetchTasks();
+    window.addEventListener('task-added', handleTaskAdded);
+    
+    return () => window.removeEventListener('task-added', handleTaskAdded);
+  }, []);
+
   return (
     <div className="flex flex-col gap-6 p-4 pt-8 pb-32 w-full max-w-lg mx-auto">
       <div className="flex flex-col gap-1 mb-2">
@@ -35,7 +79,11 @@ export const Timeline = () => {
       </div>
 
       <div className="relative border-l-2 border-muted pl-6 space-y-8">
-        {MOCK_TASKS.map((task) => (
+        {isLoading ? (
+           <span className="text-sm text-muted-foreground animate-pulse">Carregando tarefas do Supabase...</span>
+        ) : tasks.length === 0 ? (
+           <span className="text-sm text-muted-foreground">Sua agenda está vazia hoje.</span>
+        ) : tasks.map((task) => (
           <div key={task.id} className="relative">
             {/* Timeline Dot */}
             <span className="absolute -left-[31px] top-6 flex h-4 w-4 rounded-full bg-background border-2 border-primary" />
