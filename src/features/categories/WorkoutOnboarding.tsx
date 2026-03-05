@@ -1,0 +1,186 @@
+import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Button } from '@/components/ui/button';
+import { Category } from '@/types/data';
+import { supabase } from '@/integrations/supabase/client';
+import { Loader2, ArrowRight } from 'lucide-react';
+
+interface WorkoutOnboardingProps {
+  category: Category;
+  onComplete: () => void;
+}
+
+const slideVariants = {
+  enter: (direction: number) => ({ x: direction > 0 ? 300 : -300, opacity: 0 }),
+  center: { zIndex: 1, x: 0, opacity: 1 },
+  exit: (direction: number) => ({ zIndex: 0, x: direction < 0 ? 300 : -300, opacity: 0 })
+};
+
+export function WorkoutOnboarding({ category, onComplete }: WorkoutOnboardingProps) {
+  const [step, setStep] = useState(0);
+  const [direction, setDirection] = useState(1);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Form State
+  const [days, setDays] = useState<number[]>([]);
+  const [division, setDivision] = useState<string>('');
+  const [duration, setDuration] = useState<number>(60);
+
+  const paginate = (newDirection: number) => {
+    setDirection(newDirection);
+    setStep(step + newDirection);
+  };
+
+  const toggleDay = (dayIndex: number) => {
+    setDays(prev => prev.includes(dayIndex) ? prev.filter(d => d !== dayIndex) : [...prev, dayIndex]);
+  };
+
+  const handleFinish = async () => {
+    setIsSubmitting(true);
+    
+    try {
+      if (days.length === 0) throw new Error("Selecione os dias de treino.");
+
+      const insertPayloads = [];
+      const today = new Date();
+      // Look ahead 28 days (4 weeks)
+      for (let i = 0; i < 28; i++) {
+        const targetDate = new Date(today);
+        targetDate.setDate(today.getDate() + i);
+        
+        // Se o dia da semana atual está nos dias selecionados
+        if (days.includes(targetDate.getDay())) {
+           // Default to 18:00
+           targetDate.setHours(18, 0, 0, 0);
+
+           let titleBase = `Meu Treino: ${division}`;
+           if (division === 'ABC') {
+             const workoutDay = ['A (Peito/Tríceps)', 'B (Costas/Bíceps)', 'C (Pernas/Ombro)'];
+             // just a weak randomize for demo or pick by modulo
+             titleBase = `Treino ${workoutDay[i % 3]}`;
+           }
+
+           insertPayloads.push({
+             title: titleBase,
+             category: category.name,
+             status: 'pending',
+             start_time: targetDate.toISOString(),
+             estimated_duration_minutes: duration,
+             task_type: 'workout',
+             user_id: (await supabase.auth.getUser()).data.user?.id
+           });
+        }
+      }
+
+      if (insertPayloads.length > 0) {
+        await supabase.from('tasks').insert(insertPayloads);
+      }
+
+      const currentSettings = (category as any).settings || {};
+      const newSettings = {
+         ...currentSettings,
+         isConfigured: true,
+         type: 'workout',
+         schedule: { days, division, duration }
+      };
+
+      // @ts-ignore
+      await (supabase as any).from('categories').update({ settings: newSettings }).eq('id', category.id);
+      
+      onComplete();
+    } catch (e: any) {
+      console.error(e);
+      alert(e.message || 'Tivemos um problema. Tente novamente.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const renderStep = () => {
+    switch(step) {
+      case 0:
+        return (
+          <div className="flex flex-col items-center justify-center text-center space-y-6 flex-1 py-10 h-full min-h-[400px]">
+             <div className="w-20 h-20 rounded-3xl flex flex-col items-center justify-center mb-2 shadow-2xl" style={{ backgroundColor: `${category.color}15`, color: category.color }}>
+              <span className="text-4xl">{category.emoji}</span>
+            </div>
+            <h2 className="text-2xl font-bold tracking-tight text-balance">
+              Vamos construir seu corpo no <span style={{color: category.color}}>Treino</span>!
+            </h2>
+            <p className="text-muted-foreground text-sm max-w-[280px]">
+              Diga-me quais horas você vai dominar os pesos e eu montarei 4 semanas de treinos para você.
+            </p>
+            <Button size="lg" className="w-full mt-4 py-6 rounded-2xl" onClick={() => paginate(1)}>
+               Montar Grade
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          </div>
+        );
+      
+      case 1:
+        const weekDays = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+        return (
+          <div className="flex flex-col space-y-8 flex-1 py-10 h-full min-h-[400px]">
+             <div className="space-y-2 text-center">
+               <h2 className="text-2xl font-bold tracking-tight">Quais dias na semana?</h2>
+               <p className="text-muted-foreground text-sm">Selecione todos os seus dias típicos de treino.</p>
+             </div>
+             <div className="flex flex-wrap gap-3 justify-center mt-4">
+                {weekDays.map((d, index) => (
+                  <button
+                    key={d}
+                    onClick={() => toggleDay(index)}
+                    className={`h-14 w-14 rounded-full font-medium border-2 transition-all ${
+                      days.includes(index) 
+                        ? 'border-foreground bg-foreground text-background scale-105 shadow-xl' 
+                        : 'border-border/50 bg-white text-muted-foreground hover:border-foreground/30'
+                    }`}
+                  >
+                    {d}
+                  </button>
+                ))}
+             </div>
+             <div className="mt-auto pt-8">
+              <Button size="lg" className="w-full rounded-2xl py-6" disabled={days.length === 0} onClick={() => paginate(1)}>
+                Próximo <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        );
+
+      case 2:
+        const divs = ['Full Body', 'ABC', 'Push/Pull/Legs', 'Crossfit', 'Cardio'];
+        return (
+           <div className="flex flex-col space-y-8 flex-1 py-10 h-full min-h-[400px]">
+             <div className="space-y-2 text-center">
+               <h2 className="text-2xl font-bold tracking-tight">Qual sua divisão de Treino?</h2>
+               <p className="text-muted-foreground text-sm">Ex: Musculação ABC ou Full Body.</p>
+             </div>
+             <div className="grid grid-cols-2 gap-3 mt-4">
+                {divs.map(d => (
+                  <button key={d} onClick={() => setDivision(d)} 
+                    className={`py-4 rounded-2xl font-medium border-2 transition-all ${division === d ? 'border-foreground bg-foreground text-background scale-[1.02] shadow-xl' : 'border-border/50 bg-white text-muted-foreground hover:border-foreground/30'}`}>
+                    {d}
+                  </button>
+                ))}
+             </div>
+             <div className="mt-auto pt-8">
+              <Button size="lg" className="w-full rounded-2xl py-6" disabled={!division || isSubmitting} onClick={handleFinish}>
+                {isSubmitting ? <Loader2 className="animate-spin" /> : 'Finalizar Setup e Gerar Agenda'}
+              </Button>
+            </div>
+           </div>
+        );
+    }
+  };
+
+  return (
+    <div className="w-full h-full flex flex-col items-center justify-center p-4 bg-background overflow-hidden relative">
+      <AnimatePresence initial={false} custom={direction}>
+        <motion.div key={step} custom={direction} variants={slideVariants} initial="enter" animate="center" exit="exit" transition={{ x: { type: "spring", stiffness: 300, damping: 30 }, opacity: { duration: 0.2 } }} className="w-full max-w-sm absolute top-10">
+          {renderStep()}
+        </motion.div>
+      </AnimatePresence>
+    </div>
+  );
+}

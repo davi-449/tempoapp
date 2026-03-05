@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { AnimatedTabs } from "@/components/ui/animated-tabs";
 import { LayoutDashboard, CheckCircle, MapPin } from "lucide-react";
-import { CategoryOnboarding } from "@/features/categories/CategoryOnboarding";
+import { DynamicOnboarding } from "@/features/categories/DynamicOnboarding";
 import { Category } from "@/types/data";
 
 export default function CategoriesHub() {
@@ -102,7 +102,7 @@ export default function CategoriesHub() {
     if (!isConfigured) {
        return (
          <div className="h-[65vh]">
-           <CategoryOnboarding category={category} onComplete={() => refetch()} />
+           <DynamicOnboarding category={category} onComplete={() => refetch()} />
          </div>
        );
     }

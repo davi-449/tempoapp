@@ -5,7 +5,7 @@ import { Category, Subtask } from '@/types/data';
 import { supabase } from '@/integrations/supabase/client';
 import { Check, Loader2, ArrowRight, Play } from 'lucide-react';
 
-interface CategoryOnboardingProps {
+interface GeneralOnboardingProps {
   category: Category;
   onComplete: () => void;
 }
@@ -29,7 +29,7 @@ const slideVariants = {
 
 type RoutineFrequency = '1x' | '2x' | '3x' | '4x' | '5x' | 'daily';
 
-export function CategoryOnboarding({ category, onComplete }: CategoryOnboardingProps) {
+export function GeneralOnboarding({ category, onComplete }: GeneralOnboardingProps) {
   const [step, setStep] = useState(0);
   const [direction, setDirection] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
