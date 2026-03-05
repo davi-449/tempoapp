@@ -1,27 +1,35 @@
 import React, { useState, useMemo } from "react";
 import { Calendar } from "@/components/ui/calendar";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { MapPin, Clock } from "lucide-react";
 
-type TaskCategory = "trabalho" | "faculdade" | "pessoal" | "treino";
+const CAT_PILL: Record<string, { class: string; label: string }> = {
+  todos: { class: '', label: 'Todos' },
+  pessoal: { class: 'cat-pessoal', label: '🏠 Pessoal' },
+  trabalho: { class: 'cat-trabalho', label: '💼 Trabalho' },
+  treino: { class: 'cat-treino', label: '🏋️ Treino' },
+  faculdade: { class: 'cat-faculdade', label: '📚 Faculdade' },
+};
 
-const CATEGORY_COLORS: Record<string, string> = {
-  trabalho: "bg-blue-500/10 text-blue-700 border-blue-500/20",
-  faculdade: "bg-purple-500/10 text-purple-700 border-purple-500/20",
-  pessoal: "bg-emerald-500/10 text-emerald-700 border-emerald-500/20",
-  treino: "bg-orange-500/10 text-orange-700 border-orange-500/20",
+const CAT_BORDER: Record<string, string> = {
+  trabalho: 'border-l-blue-500',
+  faculdade: 'border-l-purple-500',
+  pessoal: 'border-l-emerald-500',
+  treino: 'border-l-orange-500',
 };
 
 const CalendarPage = () => {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [activeCategory, setActiveCategory] = useState<string>("todos");
+  const [viewMode, setViewMode] = useState<"calendar" | "lista">("calendar");
 
   const { data: tasks = [], isLoading } = useQuery({
-    queryKey: ["all-tasks"],
+    queryKey: ["calendar-tasks"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("tasks")
@@ -33,99 +41,119 @@ const CalendarPage = () => {
   });
 
   const filteredTasks = useMemo(() => {
-    let filtered = tasks;
-    if (activeCategory !== "todos") {
-      filtered = filtered.filter((t: any) => t.category === activeCategory);
-    }
-    return filtered;
+    if (activeCategory === "todos") return tasks;
+    return tasks.filter((t: any) => t.category === activeCategory);
   }, [tasks, activeCategory]);
 
   const tasksForSelectedDate = useMemo(() => {
     if (!selectedDate) return [];
     const dateStr = format(selectedDate, "yyyy-MM-dd");
-    return filteredTasks.filter((t: any) => {
-      if (!t.start_time) return false;
-      return t.start_time.startsWith(dateStr);
-    });
+    return filteredTasks.filter((t: any) => t.start_time?.startsWith(dateStr));
   }, [filteredTasks, selectedDate]);
 
-  // Dates that have tasks (for calendar dots)
   const datesWithTasks = useMemo(() => {
-    const dates = new Set<string>();
+    const map = new Map<string, Set<string>>();
     filteredTasks.forEach((t: any) => {
-      if (t.start_time) dates.add(t.start_time.substring(0, 10));
+      if (!t.start_time) return;
+      const d = t.start_time.substring(0, 10);
+      if (!map.has(d)) map.set(d, new Set());
+      map.get(d)!.add(t.category);
     });
-    return dates;
+    return map;
   }, [filteredTasks]);
 
   return (
     <div className="min-h-screen bg-background pb-24">
-      <header className="sticky top-0 z-30 w-full backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border/40">
-        <div className="container flex h-16 max-w-lg items-center px-4 mx-auto">
-          <div className="font-semibold text-lg tracking-tight">Calendário</div>
+      <header className="sticky top-0 z-30 w-full backdrop-blur-xl supports-[backdrop-filter]:bg-background/80 border-b border-border/40">
+        <div className="container flex h-14 max-w-lg items-center px-4 mx-auto">
+          <h1 className="font-semibold text-base tracking-tight">Calendário</h1>
         </div>
       </header>
 
-      <main className="container max-w-lg mx-auto p-4 space-y-6">
+      <main className="container max-w-lg mx-auto px-4 pt-4 space-y-5">
         {/* Category Filters */}
         <div className="flex gap-2 flex-wrap">
-          {["todos", "pessoal", "trabalho", "treino", "faculdade"].map((cat) => (
+          {Object.entries(CAT_PILL).map(([key, val]) => (
             <button
-              key={cat}
-              onClick={() => setActiveCategory(cat)}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium capitalize transition-all border ${
-                activeCategory === cat
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "bg-secondary/50 text-muted-foreground border-border/50 hover:bg-secondary"
+              key={key}
+              onClick={() => setActiveCategory(key)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all border tap-bounce ${
+                activeCategory === key
+                  ? key === 'todos'
+                    ? 'bg-foreground text-background border-foreground'
+                    : `${val.class} border-current`
+                  : 'bg-secondary/50 text-muted-foreground border-transparent hover:bg-secondary'
               }`}
             >
-              {cat}
+              {val.label}
             </button>
           ))}
         </div>
 
-        {/* Calendar */}
-        <div className="bg-card rounded-2xl border shadow-sm p-4">
-          <Calendar
-            mode="single"
-            selected={selectedDate}
-            onSelect={(date) => date && setSelectedDate(date)}
-            locale={ptBR}
-            className="mx-auto"
-            modifiers={{
-              hasTasks: (date) => datesWithTasks.has(format(date, "yyyy-MM-dd")),
-            }}
-            modifiersStyles={{
-              hasTasks: { fontWeight: "bold", textDecoration: "underline", textDecorationColor: "#10B981" },
-            }}
-          />
-        </div>
+        {/* View Toggle */}
+        <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as any)}>
+          <TabsList className="w-full">
+            <TabsTrigger value="calendar" className="flex-1">Calendário</TabsTrigger>
+            <TabsTrigger value="lista" className="flex-1">Lista</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="calendar" className="mt-4">
+            <div className="bg-card shadow-card rounded-2xl border p-4">
+              <Calendar
+                mode="single"
+                selected={selectedDate}
+                onSelect={(date) => date && setSelectedDate(date)}
+                locale={ptBR}
+                className="mx-auto"
+                modifiers={{
+                  hasTasks: (date) => datesWithTasks.has(format(date, "yyyy-MM-dd")),
+                }}
+                modifiersStyles={{
+                  hasTasks: {
+                    fontWeight: "700",
+                    textDecoration: "underline",
+                    textDecorationColor: "#10B981",
+                    textUnderlineOffset: "4px",
+                  },
+                }}
+              />
+            </div>
+          </TabsContent>
+
+          <TabsContent value="lista" className="mt-4">
+            {/* Lista mode shows all filtered tasks sorted by date */}
+          </TabsContent>
+        </Tabs>
 
         {/* Tasks for selected date */}
         <div className="space-y-3">
-          <h3 className="text-sm font-medium text-muted-foreground">
+          <h3 className="text-xs font-medium text-muted-foreground">
             {format(selectedDate, "EEEE, d 'de' MMMM", { locale: ptBR })}
           </h3>
           {isLoading ? (
-            <p className="text-sm text-muted-foreground animate-pulse">Carregando...</p>
+            <div className="bg-card shadow-card border rounded-2xl p-4 animate-pulse h-16" />
           ) : tasksForSelectedDate.length === 0 ? (
-            <div className="bg-secondary/30 rounded-xl p-6 text-center">
+            <div className="bg-card shadow-card border rounded-2xl p-6 text-center">
               <p className="text-sm text-muted-foreground">Sem tarefas para este dia</p>
             </div>
           ) : (
             tasksForSelectedDate.map((task: any) => (
               <div
                 key={task.id}
-                className="bg-card rounded-xl border shadow-sm p-4 flex justify-between items-center"
+                className={`bg-card shadow-card border rounded-2xl p-4 border-l-4 ${CAT_BORDER[task.category] || ''} flex justify-between items-center`}
               >
                 <div className="space-y-1">
                   <p className="font-medium text-sm">{task.title}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {new Date(task.start_time).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
-                    {task.estimated_duration_minutes && ` · ${task.estimated_duration_minutes} min`}
-                  </p>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Clock className="h-3 w-3" />
+                    <span>{new Date(task.start_time).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span>
+                    {task.estimated_duration_minutes && <span>· {task.estimated_duration_minutes} min</span>}
+                    {task.location && (
+                      <span className="flex items-center gap-0.5"><MapPin className="h-3 w-3" />{task.location}</span>
+                    )}
+                  </div>
                 </div>
-                <Badge variant="secondary" className={`${CATEGORY_COLORS[task.category] || ""} border capitalize text-xs`}>
+                <Badge variant="secondary" className={`${CAT_PILL[task.category]?.class || ''} border text-[10px] capitalize`}>
                   {task.category}
                 </Badge>
               </div>

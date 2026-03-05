@@ -9,4 +9,4 @@
 - [x] 5.5 Criar página `Profile.tsx` (avatar, configurações básicas)
 - [x] 5.6 Expandir `Index.tsx` com KPIs e Resumo por Categoria
 - [x] 5.7 Atualizar `App.tsx` com novas rotas e layout global com BottomNavBar
-- [ ] 5.8 Commit e Push para refletir no Lovable
+- [x] 5.8 Commit e Push para refletir no Lovable

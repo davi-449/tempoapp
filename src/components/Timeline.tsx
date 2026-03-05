@@ -1,123 +1,153 @@
-import React, { useEffect, useState } from 'react';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import React from 'react';
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
+import { MapPin, CheckCircle } from "lucide-react";
+import { format, isToday } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 type TaskCategory = 'trabalho' | 'faculdade' | 'pessoal' | 'treino';
 
-interface Task {
-  id: string;
-  title: string;
-  category: TaskCategory;
-  startTime: string; // HH:mm format for MVP
-  durationMins: number;
-}
-
-const CATEGORY_COLORS: Record<TaskCategory, string> = {
-  trabalho: "bg-blue-500 hover:bg-blue-600 text-white",
-  faculdade: "bg-purple-500 hover:bg-purple-600 text-white",
-  pessoal: "bg-emerald-500 hover:bg-emerald-600 text-white",
-  treino: "bg-orange-500 hover:bg-orange-600 text-white"
+const CAT_STYLES: Record<string, { border: string; badge: string; label: string }> = {
+  trabalho: { border: 'border-l-blue-500', badge: 'cat-trabalho', label: 'Trabalho' },
+  faculdade: { border: 'border-l-purple-500', badge: 'cat-faculdade', label: 'Faculdade' },
+  pessoal: { border: 'border-l-emerald-500', badge: 'cat-pessoal', label: 'Pessoal' },
+  treino: { border: 'border-l-orange-500', badge: 'cat-treino', label: 'Treino' },
 };
 
+function groupByPeriod(tasks: any[]) {
+  const groups: { label: string; tasks: any[] }[] = [
+    { label: '🌅 Manhã', tasks: [] },
+    { label: '☀️ Tarde', tasks: [] },
+    { label: '🌙 Noite', tasks: [] },
+  ];
+
+  tasks.forEach((t) => {
+    if (!t.start_time) return;
+    const h = new Date(t.start_time).getHours();
+    if (h < 12) groups[0].tasks.push(t);
+    else if (h < 18) groups[1].tasks.push(t);
+    else groups[2].tasks.push(t);
+  });
+
+  return groups.filter((g) => g.tasks.length > 0);
+}
+
 export const Timeline = () => {
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  const fetchTasks = async () => {
-    try {
-      setIsLoading(true);
-      const startOfDay = new Date();
-      startOfDay.setHours(0, 0, 0, 0);
-
-      const endOfDay = new Date();
-      endOfDay.setHours(23, 59, 59, 999);
+  const { data: tasks = [], isLoading, refetch } = useQuery({
+    queryKey: ['timeline-tasks'],
+    queryFn: async () => {
+      const today = new Date();
+      const start = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString();
+      const end = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).toISOString();
 
       const { data, error } = await supabase
         .from('tasks')
         .select('*')
-        //.gte('start_time', startOfDay.toISOString()) // Removed for MVP so any task shows up if created
-        //.lte('start_time', endOfDay.toISOString())
+        .gte('start_time', start)
+        .lt('start_time', end)
         .order('start_time', { ascending: true });
 
-      if (error) {
-        console.error("Error fetching tasks:", error);
-        return;
-      }
+      if (error) throw error;
+      return data || [];
+    },
+  });
 
-      const formatted = (data || []).map(t => ({
-        id: t.id,
-        title: t.title,
-        category: t.category,
-        startTime: new Date(t.start_time).toLocaleTimeString('pt-BR', { hour: '2-digit', minute:'2-digit' }),
-        durationMins: t.estimated_duration_minutes || 30
-      }));
+  // Listen for new tasks
+  React.useEffect(() => {
+    const handler = () => refetch();
+    window.addEventListener('task-added', handler);
+    return () => window.removeEventListener('task-added', handler);
+  }, [refetch]);
 
-      setTasks(formatted);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsLoading(false);
-    }
+  const groups = groupByPeriod(tasks);
+
+  const handleToggleComplete = async (taskId: string, currentStatus: string) => {
+    const newStatus = currentStatus === 'completed' ? 'pending' : 'completed';
+    await supabase.from('tasks').update({ status: newStatus }).eq('id', taskId);
+    refetch();
   };
 
-  useEffect(() => {
-    fetchTasks();
-    
-    // Listen to our custom event
-    const handleTaskAdded = () => fetchTasks();
-    window.addEventListener('task-added', handleTaskAdded);
-    
-    return () => window.removeEventListener('task-added', handleTaskAdded);
-  }, []);
-
   return (
-    <div className="flex flex-col gap-6 p-4 pt-8 pb-32 w-full max-w-lg mx-auto">
-      <div className="flex flex-col gap-1 mb-2">
-        <h2 className="text-2xl font-semibold tracking-tight">Hoje</h2>
-        <p className="text-sm text-muted-foreground">{new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+          Agenda de Hoje
+        </h3>
+        <span className="text-xs text-muted-foreground">
+          {format(new Date(), "EEEE, d MMM", { locale: ptBR })}
+        </span>
       </div>
 
-      <div className="relative border-l-2 border-muted pl-6 space-y-8">
-        {isLoading ? (
-           <span className="text-sm text-muted-foreground animate-pulse">Carregando tarefas do Supabase...</span>
-        ) : tasks.length === 0 ? (
-           <span className="text-sm text-muted-foreground">Sua agenda está vazia hoje.</span>
-        ) : tasks.map((task) => (
-          <div key={task.id} className="relative">
-            {/* Timeline Dot */}
-            <span className="absolute -left-[31px] top-6 flex h-4 w-4 rounded-full bg-background border-2 border-primary" />
-            
-            <span className="text-sm font-medium text-muted-foreground mb-2 block">{task.startTime}</span>
-            <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-              <CardContent className="p-5">
-                <div className="flex justify-between items-start gap-4">
-                  <div className="space-y-1">
-                    <h3 className="font-semibold leading-none">{task.title}</h3>
-                    <p className="text-sm text-muted-foreground flex items-center gap-2 pt-1">
-                      {task.durationMins} min
+      {isLoading ? (
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="bg-card shadow-card border rounded-2xl p-4 animate-pulse h-16" />
+          ))}
+        </div>
+      ) : groups.length === 0 ? (
+        <div className="bg-card shadow-card border rounded-2xl p-8 text-center">
+          <p className="text-sm text-muted-foreground">Sua agenda está vazia hoje</p>
+          <p className="text-xs text-muted-foreground/60 mt-1">Toque no + para adicionar uma tarefa</p>
+        </div>
+      ) : (
+        groups.map((group) => (
+          <div key={group.label} className="space-y-2">
+            <p className="text-xs font-medium text-muted-foreground">{group.label}</p>
+            {group.tasks.map((task: any) => {
+              const style = CAT_STYLES[task.category] || CAT_STYLES.pessoal;
+              const isDone = task.status === 'completed';
+
+              return (
+                <div
+                  key={task.id}
+                  className={`bg-card shadow-card border rounded-2xl p-4 border-l-4 ${style.border} flex items-center gap-3 tap-bounce transition-all ${
+                    isDone ? 'opacity-50' : ''
+                  }`}
+                >
+                  {/* Complete toggle */}
+                  <button
+                    onClick={() => handleToggleComplete(task.id, task.status)}
+                    className={`flex-shrink-0 h-5 w-5 rounded-full border-2 flex items-center justify-center transition-colors ${
+                      isDone
+                        ? 'border-emerald-500 bg-emerald-500 text-white'
+                        : 'border-muted-foreground/30 hover:border-emerald-400'
+                    }`}
+                  >
+                    {isDone && <CheckCircle className="h-3 w-3" />}
+                  </button>
+
+                  {/* Content */}
+                  <div className="flex-1 min-w-0 space-y-1">
+                    <p className={`font-medium text-sm truncate ${isDone ? 'line-through' : ''}`}>
+                      {task.title}
                     </p>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <span>
+                        {new Date(task.start_time).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                      {task.estimated_duration_minutes && (
+                        <span>· {task.estimated_duration_minutes} min</span>
+                      )}
+                      {task.location && (
+                        <span className="flex items-center gap-0.5">
+                          <MapPin className="h-3 w-3" />
+                          {task.location.length > 15 ? task.location.substring(0, 15) + '...' : task.location}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <Badge variant="secondary" className={`${CATEGORY_COLORS[task.category]} border-0 capitalize px-2 py-0.5 whitespace-nowrap`}>
-                    {task.category}
+
+                  {/* Category Badge */}
+                  <Badge variant="secondary" className={`${style.badge} border text-[10px] capitalize flex-shrink-0`}>
+                    {style.label}
                   </Badge>
                 </div>
-              </CardContent>
-            </Card>
+              );
+            })}
           </div>
-        ))}
-
-        {/* Mock Transit Block */}
-        <div className="relative">
-           <span className="absolute -left-[31px] top-4 flex h-4 w-4 rounded-full bg-background border-2 border-muted-foreground/30" />
-           <div className="bg-secondary/40 border border-border/50 rounded-xl p-4 flex items-center gap-3">
-             <div className="h-2 flex-grow bg-muted-foreground/20 rounded-full overflow-hidden">
-                <div className="h-full bg-muted-foreground/40 w-1/3 animate-pulse" />
-             </div>
-             <span className="text-xs text-muted-foreground font-medium">30 min de trânsito</span>
-           </div>
-        </div>
-      </div>
+        ))
+      )}
     </div>
   );
 };
