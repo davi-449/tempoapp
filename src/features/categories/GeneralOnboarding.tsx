@@ -86,9 +86,7 @@ export function GeneralOnboarding({ category, onComplete }: GeneralOnboardingPro
            title: `Minha Rotina de ${category.name}`,
            category: category.name,
            status: 'pending',
-           description: goal ? `Meta: ${goal}` : '',
            start_time: targetDate.toISOString(),
-           task_type: category.name.toLowerCase() === 'treino' ? 'workout' : 'task',
            user_id: userId
          });
       }

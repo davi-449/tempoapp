@@ -113,7 +113,6 @@ export function StudyOnboarding({ category, onComplete }: StudyOnboardingProps) 
              status: 'pending',
              start_time: classDT.toISOString(),
              estimated_duration_minutes: classTime,
-             task_type: 'task',
              user_id: userId
            });
 
@@ -125,7 +124,6 @@ export function StudyOnboarding({ category, onComplete }: StudyOnboardingProps) 
              status: 'pending',
              start_time: homeDT.toISOString(),
              estimated_duration_minutes: homeTime,
-             task_type: 'task',
              user_id: userId
            });
         });

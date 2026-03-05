@@ -8,6 +8,7 @@ export interface Category {
   name: string;
   color: string;
   emoji: string | null;
+  settings?: any;
 }
 
 const DEFAULT_CATEGORIES = [
@@ -36,8 +37,16 @@ export function useCategories() {
         return DEFAULT_CATEGORIES;
       }
 
-      // Merge defaults with custom categories
-      return [...DEFAULT_CATEGORIES, ...(data || [])] as Category[];
+      const dbCategories = (data || []) as Category[];
+
+      // Deduplicate: if a DB category has the same name as a default, USE the DB one (it has real UUID)
+      const dbNames = new Set(dbCategories.map((c: Category) => c.name.toLowerCase()));
+
+      const uniqueDefaults = DEFAULT_CATEGORIES.filter(
+        dc => !dbNames.has(dc.name.toLowerCase())
+      );
+
+      return [...uniqueDefaults, ...dbCategories] as Category[];
     },
     enabled: !!user,
   });

@@ -107,7 +107,6 @@ export function WorkoutOnboarding({ category, onComplete }: WorkoutOnboardingPro
              status: 'pending',
              start_time: targetDate.toISOString(),
              estimated_duration_minutes: duration,
-             task_type: 'workout',
              user_id: userId
            });
         }

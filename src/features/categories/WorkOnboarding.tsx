@@ -100,7 +100,6 @@ export function WorkOnboarding({ category, onComplete }: WorkOnboardingProps) {
              category: category.name,
              status: 'pending',
              start_time: targetDate.toISOString(),
-             task_type: 'task',
              user_id: userId
            });
         }
