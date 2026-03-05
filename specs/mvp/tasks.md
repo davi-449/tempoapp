@@ -15,10 +15,10 @@
 
 ## Fase 3: UI Foundation (Stitch MCP)
 
-- [ ] 3.1 Instalar shadcn/ui e configurar paleta de cores (Tailwind).
-- [ ] 3.2 Gerar Componente 'Timeline Inteligente' (Dashboard Principal).
-- [ ] 3.3 Gerar Componente 'Smart Add' (Bottom Sheet Modal).
-- [ ] 3.4 Gerar Componente 'Project Accordion' e 'Routine Flip Card'.
+- [x] 3.1 Instalar shadcn/ui e configurar paleta de cores (Tailwind).
+- [x] 3.2 Gerar Componente 'Timeline Inteligente' (Dashboard Principal).
+- [x] 3.3 Gerar Componente 'Smart Add' (Bottom Sheet Modal).
+- [x] 3.4 Gerar Componente 'Project Accordion' e 'Routine Flip Card'.
 
 ## Fase 4: Integração Front-Bank (Antigravity)
 
