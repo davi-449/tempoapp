@@ -3,6 +3,18 @@ export type TaskType = 'task' | 'routine_class' | 'workout';
 export type WorkoutType = 'strength' | 'cardio' | 'flexibility' | 'sports';
 export type WorkoutIntensity = 'low' | 'medium' | 'high';
 
+export interface Category {
+  id: string;
+  name: string;
+  user_id: string;
+  created_at?: string;
+  icon?: string;
+  color?: string;
+  emoji?: string;
+  order?: number;
+  settings?: any;
+}
+
 export interface Subtask {
   id: string;
   task_id: string;

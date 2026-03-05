@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Home, CalendarDays, BarChart3, UserCircle } from "lucide-react";
+import { Home, CalendarDays, BarChart3, UserCircle, LayoutDashboard } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 
 const navItems = [
   { label: "Início", icon: Home, path: "/" },
+  { label: "Hub", icon: LayoutDashboard, path: "/hub" },
   { label: "Calendário", icon: CalendarDays, path: "/calendario" },
   { label: "Análise", icon: BarChart3, path: "/analise" },
   { label: "Perfil", icon: UserCircle, path: "/perfil" },
