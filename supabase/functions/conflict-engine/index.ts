@@ -1,8 +1,8 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
 
-const MAPS_API_KEY = Deno.env.get("MAPS_API_KEY") || "AIzaSyBHczMP9iz8ZbjW7dVGdSAW9qdDKge1da4";
-const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") || "AIzaSyDozLYYJ_l92V9m2EBRc9rJ6yd9UR8o6Fs";
+const MAPS_API_KEY = Deno.env.get("MAPS_API_KEY") || "";
+const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") || "";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -15,9 +15,10 @@ serve(async (req) => {
   }
 
   try {
+    // Use SERVICE_ROLE_KEY to bypass RLS — this is server-side, safe to use
     const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL") || "",
-      Deno.env.get("SUPABASE_ANON_KEY") || ""
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_ANON_KEY") || ""
     );
 
     const { title, proposed_start_time, location, user_id, category } = await req.json();
@@ -30,11 +31,11 @@ serve(async (req) => {
     }
 
     // 1. GET ESTIMATED DURATION VIA GEMINI
-    let estimatedMinutes = 30; // Default fallback
+    let estimatedMinutes = 30;
     try {
-      const geminiPrompt = `Analyze the task: "${title}" (category: ${category}). Returning ONLY a JSON object like {"minutes": 45}. Give a realistic duration estimate in minutes. Do not explain.`;
+      const geminiPrompt = `Analyze the task: "${title}" (category: ${category}). Return ONLY a JSON object like {"minutes": 45}. Give a realistic duration estimate in minutes. Do not explain.`;
       const geminiRes = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -46,8 +47,11 @@ serve(async (req) => {
       
       const geminiData = await geminiRes.json();
       const textResponse = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || "";
-      const parsed = JSON.parse(textResponse.replace(/```json/g, '').replace(/```/g, '').trim());
-      if (parsed.minutes) estimatedMinutes = parsed.minutes;
+      const cleaned = textResponse.replace(/```json/g, '').replace(/```/g, '').trim();
+      const parsed = JSON.parse(cleaned);
+      if (parsed.minutes && typeof parsed.minutes === 'number') {
+        estimatedMinutes = parsed.minutes;
+      }
     } catch (e) {
       console.warn("Gemini prediction failed, using default 30 mins", e);
     }
@@ -55,11 +59,13 @@ serve(async (req) => {
     const startDateTime = new Date(proposed_start_time);
     const endDateTime = new Date(startDateTime.getTime() + estimatedMinutes * 60000);
 
-    // 2. FETCH TODAYS TASKS FOR CONFLICT CHECK
+    // 2. FETCH TODAY'S TASKS FOR CONFLICT CHECK
     const startOfDay = new Date(startDateTime);
     startOfDay.setHours(0, 0, 0, 0);
     const endOfDay = new Date(startDateTime);
     endOfDay.setHours(23, 59, 59, 999);
+
+    console.log(`[conflict-engine] Checking conflicts for user ${user_id}, date ${startOfDay.toISOString()} to ${endOfDay.toISOString()}`);
 
     const { data: todaysTasks, error } = await supabaseClient
       .from("tasks")
@@ -69,7 +75,12 @@ serve(async (req) => {
       .lte("start_time", endOfDay.toISOString())
       .order("start_time", { ascending: true });
 
-    if (error) throw error;
+    if (error) {
+      console.error("[conflict-engine] DB query error:", error);
+      throw error;
+    }
+
+    console.log(`[conflict-engine] Found ${todaysTasks?.length || 0} existing tasks for today`);
 
     let hasConflict = false;
     let conflictWarning = null;
@@ -77,22 +88,24 @@ serve(async (req) => {
     if (todaysTasks && todaysTasks.length > 0) {
       for (const t of todaysTasks) {
         if (!t.start_time || !t.end_time) continue;
-        const previousEnd = new Date(t.end_time);
         
-        // Simple Time Clash
-        if (startDateTime < previousEnd && endDateTime > new Date(t.start_time)) {
+        const existingStart = new Date(t.start_time);
+        const existingEnd = new Date(t.end_time);
+
+        // Time Overlap Check: new task overlaps with existing task
+        if (startDateTime < existingEnd && endDateTime > existingStart) {
           hasConflict = true;
-          conflictWarning = `Conflito direto com a tarefa "${t.title}".`;
+          const existingStartStr = existingStart.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+          const existingEndStr = existingEnd.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+          conflictWarning = `Conflito com "${t.title}" (${existingStartStr} - ${existingEndStr}). Escolha outro horário.`;
           break;
         }
 
-        // Space-Time Logistics Clash (If previous task precedes this one directly)
-        if (previousEnd <= startDateTime && t.location && location) {
-          const timeGapMillis = startDateTime.getTime() - previousEnd.getTime();
-          const timeGapMinutes = Math.floor(timeGapMillis / 60000);
+        // Space-Time Logistics: check transit time between tasks
+        if (existingEnd <= startDateTime && t.location && location) {
+          const timeGapMinutes = Math.floor((startDateTime.getTime() - existingEnd.getTime()) / 60000);
 
           try {
-            // Call Google Maps API Distance Matrix
             const mapsRes = await fetch(
               `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${encodeURIComponent(t.location)}&destinations=${encodeURIComponent(location)}&key=${MAPS_API_KEY}&mode=walking`
             );
@@ -103,30 +116,34 @@ serve(async (req) => {
               const transitMinutes = Math.ceil(transitSeconds / 60);
               if (timeGapMinutes < transitMinutes) {
                 hasConflict = true;
-                conflictWarning = `Deslocamento impossível. A tarefa anterior termina em ${t.location}, e o trânsito levará ${transitMinutes} min. Você terá apenas ${timeGapMinutes} min de intervalo.`;
+                conflictWarning = `Deslocamento impossível! "${t.title}" termina em ${t.location}, e o trânsito até ${location} leva ~${transitMinutes} min. Você só tem ${timeGapMinutes} min de intervalo.`;
                 break;
               }
             }
           } catch (e) {
-            console.error("Maps API error", e);
+            console.error("[conflict-engine] Maps API error", e);
           }
         }
       }
     }
 
-    const totalMinutesToday = (todaysTasks || []).reduce((acc, t) => acc + (t.estimated_duration_minutes || 0), 0);
-    const hasBurnoutRisk = totalMinutesToday + estimatedMinutes > 10 * 60; // > 10 hours of tasks
+    // Burnout check
+    const totalMinutesToday = (todaysTasks || []).reduce((acc: number, t: any) => acc + (t.estimated_duration_minutes || 0), 0);
+    const hasBurnoutRisk = totalMinutesToday + estimatedMinutes > 10 * 60;
     
     if (!hasConflict && hasBurnoutRisk) {
-        conflictWarning = `Atenção: Sua carga horária hoje passará de 10 horas. Considere mover tarefas não urgentes para evitar burnout.`;
+      conflictWarning = `⚠️ Sua carga hoje passará de 10 horas (${Math.round((totalMinutesToday + estimatedMinutes) / 60)}h no total). Considere mover tarefas não urgentes.`;
     }
+
+    console.log(`[conflict-engine] Result: conflict=${hasConflict}, estimated=${estimatedMinutes}min`);
 
     return new Response(
       JSON.stringify({
         estimated_minutes: estimatedMinutes,
         predicted_end_time: endDateTime.toISOString(),
         has_conflict: hasConflict,
-        warning: conflictWarning
+        warning: conflictWarning,
+        existing_tasks_count: todaysTasks?.length || 0,
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -135,6 +152,7 @@ serve(async (req) => {
     );
 
   } catch (err: any) {
+    console.error("[conflict-engine] Fatal error:", err);
     return new Response(JSON.stringify({ error: err.message }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 500,

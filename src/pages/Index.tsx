@@ -82,7 +82,7 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background relative pb-24">
       {/* Header */}
-      <header className="sticky top-0 z-30 w-full backdrop-blur-xl supports-[backdrop-filter]:bg-background/80 border-b border-border/40">
+      <header className="sticky top-0 z-30 w-full glass-header border-b border-border/40">
         <div className="container flex h-16 max-w-lg items-center px-4 mx-auto">
           <div>
             <p className="text-xs text-muted-foreground">{getGreeting()}</p>
@@ -96,7 +96,7 @@ const Index = () => {
         </div>
       </header>
 
-      <main className="container max-w-lg mx-auto px-4 pt-5 space-y-7">
+      <main className="container max-w-lg mx-auto px-4 pt-5 space-y-7 animate-page-in">
         {/* KPI Row */}
         <section className="grid grid-cols-3 gap-3 animate-fade-in">
           <div className="bg-card shadow-card rounded-2xl p-3 flex flex-col items-center text-center gap-1 border border-border/50">

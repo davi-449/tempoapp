@@ -4,22 +4,22 @@
 @tailwind components;
 @tailwind utilities;
 
-/* TempoApp Design System — Airbnb-inspired
-   All colors are HSL. Categories use dedicated CSS vars.
+/* TempoApp Design System v3 — Premium Minimal
+   Inspired by Linear, Notion, Airbnb.
 */
 
 @layer base {
   :root {
-    --background: 230 20% 97%;      /* #F7F7F9 off-white */
-    --foreground: 220 30% 12%;      /* dark slate */
+    --background: 230 20% 97%;
+    --foreground: 220 30% 12%;
 
-    --card: 0 0% 100%;              /* pure white cards */
+    --card: 0 0% 100%;
     --card-foreground: 220 30% 12%;
 
     --popover: 0 0% 100%;
     --popover-foreground: 220 30% 12%;
 
-    --primary: 220 20% 14%;         /* quase preto, premium */
+    --primary: 220 20% 14%;
     --primary-foreground: 0 0% 98%;
 
     --secondary: 220 14% 96%;
@@ -38,15 +38,13 @@
     --input: 220 14% 92%;
     --ring: 220 20% 14%;
 
-    --radius: 1rem;                 /* 16px — rounded premium */
+    --radius: 1rem;
 
-    /* Category colors */
-    --cat-trabalho: 217 91% 60%;    /* #3B82F6 */
-    --cat-faculdade: 263 70% 66%;   /* #8B5CF6 */
-    --cat-pessoal: 160 84% 39%;     /* #10B981 */
-    --cat-treino: 25 95% 53%;       /* #F97316 */
+    --cat-trabalho: 217 91% 60%;
+    --cat-faculdade: 263 70% 66%;
+    --cat-pessoal: 160 84% 39%;
+    --cat-treino: 25 95% 53%;
 
-    /* Sidebar (Lovable compat) */
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;
     --sidebar-primary: 240 5.9% 10%;
@@ -60,32 +58,23 @@
   .dark {
     --background: 222 47% 6%;
     --foreground: 210 40% 96%;
-
     --card: 222 47% 9%;
     --card-foreground: 210 40% 96%;
-
     --popover: 222 47% 9%;
     --popover-foreground: 210 40% 96%;
-
     --primary: 210 40% 96%;
     --primary-foreground: 222 47% 9%;
-
     --secondary: 217 33% 15%;
     --secondary-foreground: 210 40% 96%;
-
     --muted: 217 33% 15%;
     --muted-foreground: 215 20% 65%;
-
     --accent: 217 33% 15%;
     --accent-foreground: 210 40% 96%;
-
     --destructive: 0 63% 31%;
     --destructive-foreground: 210 40% 96%;
-
     --border: 217 33% 18%;
     --input: 217 33% 18%;
     --ring: 213 27% 84%;
-
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
     --sidebar-primary: 224.3 76.3% 48%;
@@ -106,33 +95,114 @@
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    scroll-behavior: smooth;
   }
 
   body {
     @apply bg-background text-foreground;
+    overflow-x: hidden;
+  }
+
+  /* Premium text selection */
+  ::selection {
+    background-color: hsl(var(--primary) / 0.12);
+    color: hsl(var(--primary));
+  }
+
+  /* Thin scrollbar */
+  ::-webkit-scrollbar {
+    width: 4px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.3);
+  }
+
+  /* Smooth focus */
+  *:focus-visible {
+    outline: 2px solid hsl(var(--ring) / 0.4);
+    outline-offset: 2px;
+    border-radius: var(--radius);
   }
 }
 
-/* Utility classes for the Design System */
 @layer utilities {
+  /* Shadows — deeper and more premium */
   .shadow-card {
-    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.04), 0 1px 4px rgba(0, 0, 0, 0.02);
+    box-shadow:
+      0 1px 2px rgba(0, 0, 0, 0.03),
+      0 4px 16px rgba(0, 0, 0, 0.04);
   }
   .shadow-card-hover {
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04);
+    box-shadow:
+      0 2px 4px rgba(0, 0, 0, 0.04),
+      0 12px 40px rgba(0, 0, 0, 0.08);
   }
   .shadow-nav {
-    box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.06), 0 4px 24px rgba(0, 0, 0, 0.06);
+    box-shadow:
+      0 -2px 16px rgba(0, 0, 0, 0.04),
+      0 8px 32px rgba(0, 0, 0, 0.08);
+  }
+  .shadow-float {
+    box-shadow:
+      0 4px 12px rgba(0, 0, 0, 0.06),
+      0 16px 48px rgba(0, 0, 0, 0.12);
   }
 
   /* Category accent backgrounds */
-  .cat-trabalho { background-color: hsl(217 91% 60% / 0.1); border-color: hsl(217 91% 60% / 0.2); color: hsl(217 91% 50%); }
-  .cat-faculdade { background-color: hsl(263 70% 66% / 0.1); border-color: hsl(263 70% 66% / 0.2); color: hsl(263 70% 50%); }
-  .cat-pessoal { background-color: hsl(160 84% 39% / 0.1); border-color: hsl(160 84% 39% / 0.2); color: hsl(160 84% 30%); }
-  .cat-treino { background-color: hsl(25 95% 53% / 0.1); border-color: hsl(25 95% 53% / 0.2); color: hsl(25 95% 42%); }
+  .cat-trabalho { background-color: hsl(217 91% 60% / 0.08); border-color: hsl(217 91% 60% / 0.18); color: hsl(217 91% 45%); }
+  .cat-faculdade { background-color: hsl(263 70% 66% / 0.08); border-color: hsl(263 70% 66% / 0.18); color: hsl(263 70% 45%); }
+  .cat-pessoal { background-color: hsl(160 84% 39% / 0.08); border-color: hsl(160 84% 39% / 0.18); color: hsl(160 84% 28%); }
+  .cat-treino { background-color: hsl(25 95% 53% / 0.08); border-color: hsl(25 95% 53% / 0.18); color: hsl(25 95% 38%); }
 
   /* Tap bounce */
   .tap-bounce {
-    @apply transition-transform active:scale-[0.97];
+    @apply transition-all duration-200 active:scale-[0.97];
   }
+
+  /* Shimmer animation for loading */
+  .shimmer {
+    background: linear-gradient(
+      90deg,
+      hsl(var(--muted)) 0%,
+      hsl(var(--muted-foreground) / 0.06) 50%,
+      hsl(var(--muted)) 100%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s ease-in-out infinite;
+  }
+
+  /* Glass header */
+  .glass-header {
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    background-color: hsl(var(--background) / 0.72);
+  }
+}
+
+/* Animations */
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-page-in {
+  animation: page-in 0.3s ease-out forwards;
 }

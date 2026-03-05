@@ -46,13 +46,13 @@ const ProfilePage = () => {
 
   return (
     <div className="min-h-screen bg-background pb-24">
-      <header className="sticky top-0 z-30 w-full backdrop-blur-xl supports-[backdrop-filter]:bg-background/80 border-b border-border/40">
+      <header className="sticky top-0 z-30 w-full glass-header border-b border-border/40">
         <div className="container flex h-14 max-w-lg items-center px-4 mx-auto">
           <h1 className="font-semibold text-base tracking-tight">Perfil</h1>
         </div>
       </header>
 
-      <main className="container max-w-lg mx-auto px-4 pt-6 space-y-6">
+      <main className="container max-w-lg mx-auto px-4 pt-6 space-y-6 animate-page-in">
         {/* Avatar */}
         <div className="flex flex-col items-center gap-3 py-4 animate-fade-in">
           <div className="h-20 w-20 rounded-full bg-foreground/10 flex items-center justify-center text-2xl font-bold">

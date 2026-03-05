@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { Plus, Loader2, MapPin, Clock, Calendar as CalIcon } from "lucide-react";
+import { Plus, Loader2, MapPin, Clock, Calendar as CalIcon, AlertTriangle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { format } from "date-fns";
+import { motion, AnimatePresence } from "framer-motion";
 
 type TaskCategory = 'trabalho' | 'faculdade' | 'pessoal' | 'treino';
 
@@ -26,50 +27,47 @@ export const SmartAdd = () => {
   const [duration, setDuration] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
+  const [conflictWarning, setConflictWarning] = useState<string | null>(null);
   const { toast } = useToast();
   const { user } = useAuth();
 
-  const handleAdd = async () => {
+  const handleAdd = async (ignoreConflict = false) => {
     if (!title.trim()) return;
     setIsLoading(true);
+    setConflictWarning(null);
 
     try {
       const userId = user?.id || '00000000-0000-0000-0000-000000000000';
       const startTime = new Date(`${date}T${time}:00`).toISOString();
 
-      toast({
-        title: "Analisando agenda...",
-        description: "Verificando conflitos e estimando duração.",
-      });
+      let durationMinutes = duration ? parseInt(duration) : 60;
 
-      // Call the Edge Function
-      const { data: conflictData, error: funcError } = await supabase.functions.invoke('conflict-engine', {
-        body: {
-          title,
-          proposed_start_time: startTime,
-          location: location || null,
-          user_id: userId,
-          category,
-        }
-      });
-
-      if (funcError) throw funcError;
-
-      if (conflictData?.has_conflict) {
+      // Only run conflict-engine if we are not forcing the save
+      if (!ignoreConflict) {
         toast({
-          variant: "destructive",
-          title: "Conflito detectado ⚠️",
-          description: conflictData.warning,
+          title: "Analisando agenda...",
+          description: "Verificando conflitos e estimando duração com IA.",
         });
-        setIsLoading(false);
-        return;
+
+        const { data: conflictData, error: funcError } = await supabase.functions.invoke('conflict-engine', {
+          body: { title, proposed_start_time: startTime, location: location || null, user_id: userId, category }
+        });
+
+        if (funcError) throw funcError;
+
+        if (conflictData?.has_conflict) {
+          setConflictWarning(conflictData.warning);
+          setIsLoading(false);
+          return;
+        }
+
+        if (conflictData?.estimated_minutes && !duration) {
+          durationMinutes = conflictData.estimated_minutes;
+        }
       }
 
-      // Calculate end time
-      const durationMinutes = duration ? parseInt(duration) : (conflictData?.estimated_minutes || 60);
       const endTime = new Date(new Date(startTime).getTime() + durationMinutes * 60000).toISOString();
 
-      // Insert task
       const { error: insertError } = await supabase.from('tasks').insert({
         title,
         category,
@@ -87,13 +85,13 @@ export const SmartAdd = () => {
         description: `${title} · ${durationMinutes} min`,
       });
 
-      // Reset form
+      // Reset
       setTitle('');
       setLocation('');
       setDuration('');
       setCategory('pessoal');
+      setConflictWarning(null);
       setIsOpen(false);
-
       window.dispatchEvent(new Event('task-added'));
     } catch (e: any) {
       toast({ variant: "destructive", title: "Erro", description: e.message || "Falha ao salvar" });
@@ -107,12 +105,12 @@ export const SmartAdd = () => {
       <SheetTrigger asChild>
         <Button
           size="icon"
-          className="h-14 w-14 rounded-full shadow-nav bg-foreground hover:bg-foreground/90 text-background fixed bottom-20 right-4 z-50 tap-bounce"
+          className="h-14 w-14 rounded-[1.25rem] shadow-float bg-primary/95 backdrop-blur-md hover:bg-primary text-primary-foreground fixed bottom-20 right-4 z-50 tap-bounce border border-white/10 transition-all duration-300 hover:scale-105"
         >
           <Plus className="h-6 w-6" />
         </Button>
       </SheetTrigger>
-      <SheetContent side="bottom" className="rounded-t-3xl sm:max-w-md mx-auto p-6 flex flex-col gap-5 max-h-[85vh] overflow-y-auto">
+      <SheetContent side="bottom" className="rounded-t-3xl sm:max-w-md mx-auto p-6 flex flex-col gap-5 max-h-[90vh] overflow-y-auto">
         <SheetHeader>
           <SheetTitle className="text-xl font-semibold tracking-tight">Nova Tarefa</SheetTitle>
         </SheetHeader>
@@ -121,11 +119,36 @@ export const SmartAdd = () => {
           {/* Title */}
           <Input
             placeholder="O que você precisa fazer?"
-            className="text-base h-12 border-0 bg-secondary/50 rounded-xl focus-visible:ring-1"
+            className="text-base h-12 border-0 bg-secondary/60 rounded-xl focus-visible:ring-2 focus-visible:bg-transparent transition-all"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             autoFocus
           />
+
+          {/* Conflict Warning Inline */}
+          <AnimatePresence>
+            {conflictWarning && (
+              <motion.div
+                initial={{ opacity: 0, height: 0, scale: 0.95 }}
+                animate={{ opacity: 1, height: "auto", scale: 1 }}
+                exit={{ opacity: 0, height: 0, scale: 0.95 }}
+                className="bg-amber-50 border border-amber-200 text-amber-900 p-4 rounded-2xl flex flex-col gap-3 shadow-sm"
+              >
+                <div className="flex gap-3">
+                  <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
+                  <p className="text-sm font-medium leading-relaxed">{conflictWarning}</p>
+                </div>
+                <div className="flex gap-2 justify-end">
+                  <Button variant="outline" size="sm" className="h-8 rounded-lg bg-white/50 text-xs" onClick={() => setConflictWarning(null)}>
+                    Ajustar horário
+                  </Button>
+                  <Button size="sm" className="h-8 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-xs border-0" onClick={() => handleAdd(true)}>
+                    Ignorar e Adicionar
+                  </Button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Category Pills */}
           <div className="space-y-2">
@@ -138,7 +161,7 @@ export const SmartAdd = () => {
                   onClick={() => setCategory(cat.key)}
                   className={`px-3 py-2 rounded-xl text-xs font-medium transition-all border tap-bounce ${
                     category === cat.key
-                      ? `${cat.class} border-current`
+                      ? `${cat.class} border-current ring-2 ring-current ring-offset-1`
                       : 'bg-secondary/50 text-muted-foreground border-transparent hover:bg-secondary'
                   }`}
                 >
@@ -157,7 +180,10 @@ export const SmartAdd = () => {
               <Input
                 type="date"
                 value={date}
-                onChange={(e) => setDate(e.target.value)}
+                onChange={(e) => {
+                  setDate(e.target.value);
+                  setConflictWarning(null);
+                }}
                 className="h-11 bg-secondary/50 border-0 rounded-xl text-sm"
               />
             </div>
@@ -168,55 +194,58 @@ export const SmartAdd = () => {
               <Input
                 type="time"
                 value={time}
-                onChange={(e) => setTime(e.target.value)}
+                onChange={(e) => {
+                  setTime(e.target.value);
+                  setConflictWarning(null);
+                }}
                 className="h-11 bg-secondary/50 border-0 rounded-xl text-sm"
               />
             </div>
           </div>
 
-          {/* Duration */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
-              <Clock className="h-3 w-3" /> Duração (min) — opcional, a IA estima se vazio
-            </label>
-            <Input
-              type="number"
-              placeholder="Ex: 45"
-              value={duration}
-              onChange={(e) => setDuration(e.target.value)}
-              className="h-11 bg-secondary/50 border-0 rounded-xl text-sm"
-              min={1}
-              max={480}
-            />
-          </div>
+          <div className="grid grid-cols-2 gap-3">
+            {/* Duration */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                <Clock className="h-3 w-3" /> Duração (min)
+              </label>
+              <Input
+                type="number"
+                placeholder="IA estima..."
+                value={duration}
+                onChange={(e) => {
+                  setDuration(e.target.value);
+                  setConflictWarning(null);
+                }}
+                className="h-11 bg-secondary/50 border-0 rounded-xl text-sm"
+                min={1}
+                max={480}
+              />
+            </div>
 
-          {/* Location */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
-              <MapPin className="h-3 w-3" /> Localização — opcional
-            </label>
-            <Input
-              placeholder="Endereço ou local"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              className="h-11 bg-secondary/50 border-0 rounded-xl text-sm"
-            />
+            {/* Location */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                <MapPin className="h-3 w-3" /> Opcional
+              </label>
+              <Input
+                placeholder="Endereço ou local"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                className="h-11 bg-secondary/50 border-0 rounded-xl text-sm truncate"
+              />
+            </div>
           </div>
 
           {/* Submit */}
           <Button
-            className="w-full h-12 text-sm font-semibold rounded-xl bg-foreground text-background hover:bg-foreground/90 tap-bounce"
-            onClick={handleAdd}
+            className={`w-full h-12 text-sm font-semibold rounded-xl transition-all ${
+              isLoading ? 'shimmer text-muted-foreground pointer-events-none' : 'bg-primary text-primary-foreground hover:bg-primary/95 shadow-md tap-bounce'
+            }`}
+            onClick={() => handleAdd(false)}
             disabled={isLoading || !title.trim()}
           >
-            {isLoading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Analisando...
-              </>
-            ) : (
-              'Adicionar na Agenda'
-            )}
+            {isLoading ? 'Analisando agenda...' : 'Adicionar na Agenda'}
           </Button>
         </div>
       </SheetContent>
