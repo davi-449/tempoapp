@@ -2,9 +2,9 @@
 
 ## Fase 1: Setup da Infraestrutura e Banco
 
-- [ ] 1.1 Criar projeto Supabase.
-- [ ] 1.2 Definir Schema SQL (`users`, `tasks`, `routines`, `projects`).
-- [ ] 1.3 Aplicar RLS Policies e sincronizar tipagem TypeScript.
+- [x] 1.1 Criar projeto Supabase.
+- [x] 1.2 Definir Schema SQL (`users`, `tasks`, `routines`, `projects`).
+- [x] 1.3 Aplicar RLS Policies e sincronizar tipagem TypeScript.
 
 ## Fase 2: Integrações e Backend (Edge Functions)
 
