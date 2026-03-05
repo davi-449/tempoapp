@@ -8,20 +8,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { format } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
-
-type TaskCategory = 'trabalho' | 'faculdade' | 'pessoal' | 'treino';
-
-const CATEGORIES: { key: TaskCategory; label: string; emoji: string; class: string }[] = [
-  { key: 'pessoal', label: 'Pessoal', emoji: '🏠', class: 'cat-pessoal' },
-  { key: 'trabalho', label: 'Trabalho', emoji: '💼', class: 'cat-trabalho' },
-  { key: 'treino', label: 'Treino', emoji: '🏋️', class: 'cat-treino' },
-  { key: 'faculdade', label: 'Faculdade', emoji: '📚', class: 'cat-faculdade' },
-];
+import { useCategories } from "@/hooks/useCategories";
 
 export const SmartAdd = () => {
+  const { categories } = useCategories();
   const [title, setTitle] = useState('');
   const [location, setLocation] = useState('');
-  const [category, setCategory] = useState<TaskCategory>('pessoal');
+  const [category, setCategory] = useState<string>('');
   const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [time, setTime] = useState(format(new Date(), 'HH:mm'));
   const [duration, setDuration] = useState('');
@@ -50,7 +43,7 @@ export const SmartAdd = () => {
         });
 
         const { data: conflictData, error: funcError } = await supabase.functions.invoke('conflict-engine', {
-          body: { title, proposed_start_time: startTime, location: location || null, user_id: userId, category }
+          body: { title, proposed_start_time: startTime, location: location || null, user_id: userId, category: category || 'Sem Categoria' }
         });
 
         if (funcError) throw funcError;
@@ -70,7 +63,7 @@ export const SmartAdd = () => {
 
       const { error: insertError } = await supabase.from('tasks').insert({
         title,
-        category,
+        category: category || categories[0]?.name || 'Sem Categoria',
         location: location || null,
         start_time: startTime,
         end_time: endTime,
@@ -89,7 +82,7 @@ export const SmartAdd = () => {
       setTitle('');
       setLocation('');
       setDuration('');
-      setCategory('pessoal');
+      setCategory('');
       setConflictWarning(null);
       setIsOpen(false);
       window.dispatchEvent(new Event('task-added'));
@@ -105,12 +98,12 @@ export const SmartAdd = () => {
       <SheetTrigger asChild>
         <Button
           size="icon"
-          className="h-14 w-14 rounded-[1.25rem] shadow-float bg-primary/95 backdrop-blur-md hover:bg-primary text-primary-foreground fixed bottom-20 right-4 z-50 tap-bounce border border-white/10 transition-all duration-300 hover:scale-105"
+          className="h-14 w-14 rounded-[24px] shadow-float bg-primary/95 backdrop-blur-md hover:bg-primary text-primary-foreground fixed bottom-20 right-4 z-50 tap-bounce border border-white/10 transition-all duration-300 hover:scale-105"
         >
           <Plus className="h-6 w-6" />
         </Button>
       </SheetTrigger>
-      <SheetContent side="bottom" className="rounded-t-3xl sm:max-w-md mx-auto p-6 flex flex-col gap-5 max-h-[90vh] overflow-y-auto">
+      <SheetContent side="bottom" className="rounded-t-[32px] sm:max-w-md mx-auto p-6 flex flex-col gap-5 max-h-[90vh] overflow-y-auto">
         <SheetHeader>
           <SheetTitle className="text-xl font-semibold tracking-tight">Nova Tarefa</SheetTitle>
         </SheetHeader>
@@ -119,7 +112,7 @@ export const SmartAdd = () => {
           {/* Title */}
           <Input
             placeholder="O que você precisa fazer?"
-            className="text-base h-12 border-0 bg-secondary/60 rounded-xl focus-visible:ring-2 focus-visible:bg-transparent transition-all"
+            className="text-base h-12 border-0 bg-secondary/60 rounded-2xl focus-visible:ring-2 focus-visible:bg-transparent transition-all"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             autoFocus
@@ -154,20 +147,29 @@ export const SmartAdd = () => {
           <div className="space-y-2">
             <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Categoria</label>
             <div className="flex gap-2 flex-wrap">
-              {CATEGORIES.map((cat) => (
-                <button
-                  key={cat.key}
-                  type="button"
-                  onClick={() => setCategory(cat.key)}
-                  className={`px-3 py-2 rounded-xl text-xs font-medium transition-all border tap-bounce ${
-                    category === cat.key
-                      ? `${cat.class} border-current ring-2 ring-current ring-offset-1`
-                      : 'bg-secondary/50 text-muted-foreground border-transparent hover:bg-secondary'
-                  }`}
-                >
-                  {cat.emoji} {cat.label}
-                </button>
-              ))}
+              {categories.map((cat) => {
+                const isSelected = category === cat.name;
+                return (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => setCategory(cat.name)}
+                    className="px-3 py-2 rounded-2xl text-xs font-medium transition-all border tap-bounce"
+                    style={isSelected ? {
+                      borderColor: cat.color,
+                      backgroundColor: `${cat.color}15`,
+                      color: cat.color,
+                      boxShadow: `0 0 0 2px ${cat.color}33`
+                    } : {
+                      borderColor: 'transparent',
+                      backgroundColor: 'hsl(var(--secondary) / 0.5)',
+                      color: 'hsl(var(--muted-foreground))'
+                    }}
+                  >
+                    {cat.emoji} {cat.name}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -184,7 +186,7 @@ export const SmartAdd = () => {
                   setDate(e.target.value);
                   setConflictWarning(null);
                 }}
-                className="h-11 bg-secondary/50 border-0 rounded-xl text-sm"
+                className="h-11 bg-secondary/50 border-0 rounded-2xl text-sm"
               />
             </div>
             <div className="space-y-1.5">
@@ -198,7 +200,7 @@ export const SmartAdd = () => {
                   setTime(e.target.value);
                   setConflictWarning(null);
                 }}
-                className="h-11 bg-secondary/50 border-0 rounded-xl text-sm"
+                className="h-11 bg-secondary/50 border-0 rounded-2xl text-sm"
               />
             </div>
           </div>
@@ -217,7 +219,7 @@ export const SmartAdd = () => {
                   setDuration(e.target.value);
                   setConflictWarning(null);
                 }}
-                className="h-11 bg-secondary/50 border-0 rounded-xl text-sm"
+                className="h-11 bg-secondary/50 border-0 rounded-2xl text-sm"
                 min={1}
                 max={480}
               />
@@ -232,14 +234,14 @@ export const SmartAdd = () => {
                 placeholder="Endereço ou local"
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
-                className="h-11 bg-secondary/50 border-0 rounded-xl text-sm truncate"
+                className="h-11 bg-secondary/50 border-0 rounded-2xl text-sm truncate"
               />
             </div>
           </div>
 
           {/* Submit */}
           <Button
-            className={`w-full h-12 text-sm font-semibold rounded-xl transition-all ${
+            className={`w-full h-12 text-sm font-semibold rounded-2xl transition-all ${
               isLoading ? 'shimmer text-muted-foreground pointer-events-none' : 'bg-primary text-primary-foreground hover:bg-primary/95 shadow-md tap-bounce'
             }`}
             onClick={() => handleAdd(false)}

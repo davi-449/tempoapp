@@ -5,16 +5,11 @@ import { useQuery } from "@tanstack/react-query";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { CheckCircle, AlertTriangle, Lightbulb, Flame } from "lucide-react";
 
-const PIE_COLORS: Record<string, string> = {
-  trabalho: "hsl(217, 91%, 60%)",
-  faculdade: "hsl(263, 70%, 66%)",
-  pessoal: "hsl(160, 84%, 39%)",
-  treino: "hsl(25, 95%, 53%)",
-};
-const CATEGORIES = ["trabalho", "faculdade", "pessoal", "treino"];
+import { useCategories } from "@/hooks/useCategories";
 
 const AnalyticsPage = () => {
   const [period, setPeriod] = useState<"semana" | "mes" | "trimestre">("semana");
+  const { categories } = useCategories();
 
   const { data: allTasks = [] } = useQuery({
     queryKey: ["analytics-tasks"],
@@ -51,10 +46,10 @@ const AnalyticsPage = () => {
     }).length;
     const rate = total > 0 ? Math.round((completed / total) * 100) : 0;
 
-    const byCategory = CATEGORIES.map((cat) => ({
-      name: cat.charAt(0).toUpperCase() + cat.slice(1),
-      value: filteredTasks.filter((t: any) => t.category === cat).length,
-      fill: PIE_COLORS[cat]
+    const byCategory = categories.map((cat) => ({
+      name: cat.name,
+      value: filteredTasks.filter((t: any) => t.category === cat.name || t.category === cat.name.toLowerCase()).length,
+      fill: cat.color
     })).filter(c => c.value > 0);
 
     // Weekly trend (always shows last 4 weeks regardless of period filter, to show "trend")
@@ -90,7 +85,7 @@ const AnalyticsPage = () => {
     const dailyAvg = (completed / days).toFixed(1);
 
     return { total, completed, overdue, rate, byCategory, weeklyTrend, streak, dailyAvg };
-  }, [allTasks, period]);
+  }, [allTasks, period, categories]);
 
   const suggestions = useMemo(() => {
     const tips: string[] = [];
@@ -134,28 +129,28 @@ const AnalyticsPage = () => {
 
         {/* KPIs */}
         <div className="grid grid-cols-2 gap-3">
-          <Card className="border-0 shadow-card hover:shadow-card-hover transition-all">
+          <Card className="border-0 shadow-card hover:shadow-card-hover transition-all rounded-[24px]">
             <CardContent className="p-4 flex flex-col items-center text-center gap-1">
               <CheckCircle className="h-5 w-5 text-emerald-500" />
               <span className="text-3xl font-bold">{stats.rate}%</span>
               <span className="text-[10px] text-muted-foreground">Conclusão no período</span>
             </CardContent>
           </Card>
-          <Card className="border-0 shadow-card hover:shadow-card-hover transition-all">
+          <Card className="border-0 shadow-card hover:shadow-card-hover transition-all rounded-[24px]">
             <CardContent className="p-4 flex flex-col items-center text-center gap-1">
               <AlertTriangle className="h-5 w-5 text-amber-500" />
               <span className="text-3xl font-bold text-amber-600">{stats.overdue}</span>
               <span className="text-[10px] text-muted-foreground">Atrasadas no período</span>
             </CardContent>
           </Card>
-          <Card className="border-0 shadow-card hover:shadow-card-hover transition-all">
+          <Card className="border-0 shadow-card hover:shadow-card-hover transition-all rounded-[24px]">
             <CardContent className="p-4 flex flex-col items-center text-center gap-1">
               <Flame className="h-5 w-5 text-orange-500" />
               <span className="text-3xl font-bold">{stats.streak}</span>
               <span className="text-[10px] text-muted-foreground">Dias Seguidos (Global)</span>
             </CardContent>
           </Card>
-          <Card className="border-0 shadow-card hover:shadow-card-hover transition-all">
+          <Card className="border-0 shadow-card hover:shadow-card-hover transition-all rounded-[24px]">
             <CardContent className="p-4 flex flex-col items-center text-center gap-1">
               <CheckCircle className="h-5 w-5 text-blue-500" />
               <span className="text-3xl font-bold">{stats.dailyAvg}</span>
@@ -165,7 +160,7 @@ const AnalyticsPage = () => {
         </div>
 
         {/* Category Pie */}
-        <Card className="border-0 shadow-card">
+        <Card className="border-0 shadow-card rounded-[24px]">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">Distribuição: {period}</CardTitle>
           </CardHeader>
@@ -199,7 +194,7 @@ const AnalyticsPage = () => {
         </Card>
 
         {/* Weekly Trend */}
-        <Card className="border-0 shadow-card">
+        <Card className="border-0 shadow-card rounded-[24px]">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">Tendência Histórica</CardTitle>
             <CardDescription className="text-xs">Taxa de conclusão últimas 4 semanas</CardDescription>
@@ -218,7 +213,7 @@ const AnalyticsPage = () => {
         </Card>
 
         {/* Suggestions */}
-        <Card className="border-0 shadow-card bg-secondary/20">
+        <Card className="border-0 shadow-card bg-secondary/20 rounded-[24px]">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               <Lightbulb className="h-4 w-4 text-amber-500" />

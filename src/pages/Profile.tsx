@@ -6,13 +6,10 @@ import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { Switch } from "@/components/ui/switch";
 import { useState, useEffect } from "react";
-
-const CATEGORIES = [
-  { name: "Trabalho", emoji: "💼", class: "cat-trabalho" },
-  { name: "Faculdade", emoji: "📚", class: "cat-faculdade" },
-  { name: "Pessoal", emoji: "🏠", class: "cat-pessoal" },
-  { name: "Treino", emoji: "🏋️", class: "cat-treino" },
-];
+import { supabase } from "@/integrations/supabase/client";
+import { AvatarUpload } from "@/components/AvatarUpload";
+import { useCategories } from "@/hooks/useCategories";
+import { CategoryManager } from "@/components/CategoryManager";
 
 function getUserInitial(email?: string | null): string {
   if (!email) return "U";
@@ -28,7 +25,18 @@ function getUserName(email?: string | null): string {
 const ProfilePage = () => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
-  const [darkMode, setDarkMode] = useState(() => document.documentElement.classList.contains('dark'));
+  const { categories } = useCategories();
+  const [darkMode, setDarkMode] = useState(() => document.documentElement.className.includes('dark'));
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function getProfile() {
+      if (!user) return;
+      const { data } = await (supabase as any).from('profiles').select('avatar_url').eq('id', user.id).single();
+      if (data) setAvatarUrl(data.avatar_url);
+    }
+    getProfile();
+  }, [user]);
 
   useEffect(() => {
     if (darkMode) {
@@ -54,10 +62,12 @@ const ProfilePage = () => {
 
       <main className="container max-w-lg mx-auto px-4 pt-6 space-y-6 animate-page-in">
         {/* Avatar */}
-        <div className="flex flex-col items-center gap-3 py-4 animate-fade-in">
-          <div className="h-20 w-20 rounded-full bg-foreground/10 flex items-center justify-center text-2xl font-bold">
-            {getUserInitial(user?.email)}
-          </div>
+        <div className="flex flex-col items-center gap-4 py-2 animate-fade-in">
+          <AvatarUpload 
+            url={avatarUrl} 
+            onUpload={(url) => setAvatarUrl(url)} 
+            size={96} 
+          />
           <div className="text-center">
             <h2 className="font-semibold text-lg">{getUserName(user?.email)}</h2>
             <p className="text-sm text-muted-foreground">{user?.email}</p>
@@ -65,14 +75,17 @@ const ProfilePage = () => {
         </div>
 
         {/* Categories */}
-        <Card className="border-0 shadow-card animate-fade-in" style={{ animationDelay: '0.1s' }}>
-          <CardContent className="p-4 space-y-3">
-            <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Suas Categorias</h3>
-            <div className="grid grid-cols-2 gap-2">
-              {CATEGORIES.map((cat) => (
-                <div key={cat.name} className={`flex items-center gap-2 ${cat.class} border rounded-xl p-3`}>
-                  <span className="text-lg">{cat.emoji}</span>
-                  <span className="text-sm font-medium">{cat.name}</span>
+        <Card className="border-0 shadow-card rounded-[24px] animate-fade-in" style={{ animationDelay: '0.1s' }}>
+          <CardContent className="p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Suas Categorias</h3>
+              <CategoryManager />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              {categories.map((cat) => (
+                <div key={cat.id} className="flex flex-col items-center justify-center gap-1 border-0 shadow-sm rounded-[20px] p-4 tap-bounce" style={{ backgroundColor: `${cat.color}15` }}>
+                  <span className="text-2xl">{cat.emoji}</span>
+                  <span className="text-sm font-semibold" style={{ color: cat.color }}>{cat.name}</span>
                 </div>
               ))}
             </div>
@@ -80,7 +93,7 @@ const ProfilePage = () => {
         </Card>
 
         {/* Settings */}
-        <Card className="border-0 shadow-card animate-fade-in" style={{ animationDelay: '0.2s' }}>
+        <Card className="border-0 shadow-card rounded-[24px] overflow-hidden animate-fade-in" style={{ animationDelay: '0.2s' }}>
           <CardContent className="p-0">
             <div className="flex items-center justify-between p-4">
               <div className="flex items-center gap-3">

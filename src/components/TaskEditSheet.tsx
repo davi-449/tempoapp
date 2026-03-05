@@ -107,7 +107,7 @@ export const TaskEditSheet = ({ task, open, onOpenChange, onSaved }: TaskEditShe
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="rounded-t-3xl sm:max-w-md mx-auto p-6 flex flex-col gap-5 max-h-[85vh] overflow-y-auto">
+      <SheetContent side="bottom" className="rounded-t-[32px] sm:max-w-md mx-auto p-6 flex flex-col gap-5 max-h-[85vh] overflow-y-auto">
         <SheetHeader>
           <SheetTitle className="text-xl font-semibold tracking-tight">Editar Tarefa</SheetTitle>
         </SheetHeader>
@@ -115,7 +115,7 @@ export const TaskEditSheet = ({ task, open, onOpenChange, onSaved }: TaskEditShe
         <div className="flex flex-col gap-5">
           <Input
             placeholder="Título da tarefa"
-            className="text-base h-12 border-0 bg-secondary/50 rounded-xl focus-visible:ring-1"
+            className="text-base h-12 border-0 bg-secondary/50 rounded-2xl focus-visible:ring-1"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
           />
@@ -129,7 +129,7 @@ export const TaskEditSheet = ({ task, open, onOpenChange, onSaved }: TaskEditShe
                   key={cat.key}
                   type="button"
                   onClick={() => setCategory(cat.key)}
-                  className={`px-3 py-2 rounded-xl text-xs font-medium transition-all border tap-bounce ${
+                  className={`px-3 py-2 rounded-2xl text-xs font-medium transition-all border tap-bounce ${
                     category === cat.key
                       ? `${cat.class} border-current`
                       : 'bg-secondary/50 text-muted-foreground border-transparent hover:bg-secondary'
@@ -147,13 +147,13 @@ export const TaskEditSheet = ({ task, open, onOpenChange, onSaved }: TaskEditShe
               <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
                 <CalIcon className="h-3 w-3" /> Data
               </label>
-              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="h-11 bg-secondary/50 border-0 rounded-xl text-sm" />
+              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="h-11 bg-secondary/50 border-0 rounded-2xl text-sm" />
             </div>
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
                 <Clock className="h-3 w-3" /> Hora
               </label>
-              <Input type="time" value={time} onChange={(e) => setTime(e.target.value)} className="h-11 bg-secondary/50 border-0 rounded-xl text-sm" />
+              <Input type="time" value={time} onChange={(e) => setTime(e.target.value)} className="h-11 bg-secondary/50 border-0 rounded-2xl text-sm" />
             </div>
           </div>
 
@@ -162,7 +162,7 @@ export const TaskEditSheet = ({ task, open, onOpenChange, onSaved }: TaskEditShe
             <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
               <Clock className="h-3 w-3" /> Duração (min)
             </label>
-            <Input type="number" value={duration} onChange={(e) => setDuration(e.target.value)} className="h-11 bg-secondary/50 border-0 rounded-xl text-sm" min={1} max={480} />
+            <Input type="number" value={duration} onChange={(e) => setDuration(e.target.value)} className="h-11 bg-secondary/50 border-0 rounded-2xl text-sm" min={1} max={480} />
           </div>
 
           {/* Location */}
@@ -170,14 +170,14 @@ export const TaskEditSheet = ({ task, open, onOpenChange, onSaved }: TaskEditShe
             <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
               <MapPin className="h-3 w-3" /> Localização
             </label>
-            <Input placeholder="Endereço ou local" value={location} onChange={(e) => setLocation(e.target.value)} className="h-11 bg-secondary/50 border-0 rounded-xl text-sm" />
+            <Input placeholder="Endereço ou local" value={location} onChange={(e) => setLocation(e.target.value)} className="h-11 bg-secondary/50 border-0 rounded-2xl text-sm" />
           </div>
 
           {/* Actions */}
           <div className="flex gap-3">
             <Button
               variant="destructive"
-              className="flex-1 h-12 rounded-xl tap-bounce"
+              className="flex-1 h-12 rounded-2xl tap-bounce"
               onClick={handleDelete}
               disabled={isDeleting}
             >
@@ -191,7 +191,7 @@ export const TaskEditSheet = ({ task, open, onOpenChange, onSaved }: TaskEditShe
               )}
             </Button>
             <Button
-              className="flex-1 h-12 rounded-xl bg-foreground text-background hover:bg-foreground/90 tap-bounce"
+              className="flex-1 h-12 rounded-2xl bg-foreground text-background hover:bg-foreground/90 tap-bounce"
               onClick={handleSave}
               disabled={isSaving || !title.trim()}
             >

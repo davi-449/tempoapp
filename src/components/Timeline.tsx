@@ -1,20 +1,11 @@
 import React, { useState } from 'react';
-import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
-import { useQuery } from "@tanstack/react-query";
-import { MapPin, CheckCircle } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { useCategories } from "@/hooks/useCategories";
 import { TaskEditSheet } from "./TaskEditSheet";
-
-type TaskCategory = 'trabalho' | 'faculdade' | 'pessoal' | 'treino';
-
-const CAT_STYLES: Record<string, { border: string; badge: string; label: string }> = {
-  trabalho: { border: 'border-l-blue-500', badge: 'cat-trabalho', label: 'Trabalho' },
-  faculdade: { border: 'border-l-purple-500', badge: 'cat-faculdade', label: 'Faculdade' },
-  pessoal: { border: 'border-l-emerald-500', badge: 'cat-pessoal', label: 'Pessoal' },
-  treino: { border: 'border-l-orange-500', badge: 'cat-treino', label: 'Treino' },
-};
+import { useQuery } from "@tanstack/react-query";
+import { MapPin, CheckCircle } from "lucide-react";
 
 function groupByPeriod(tasks: any[]) {
   const groups: { label: string; tasks: any[] }[] = [
@@ -37,6 +28,7 @@ function groupByPeriod(tasks: any[]) {
 export const Timeline = () => {
   const [editingTask, setEditingTask] = useState<any>(null);
   const [editOpen, setEditOpen] = useState(false);
+  const { categories } = useCategories();
 
   const { data: tasks = [], isLoading, refetch } = useQuery({
     queryKey: ['timeline-tasks'],
@@ -81,91 +73,99 @@ export const Timeline = () => {
     <>
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-            Agenda de Hoje
+          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            Sua Agenda
           </h3>
-          <span className="text-xs text-muted-foreground">
-            {format(new Date(), "EEEE, d MMM", { locale: ptBR })}
+          <span className="text-xs font-medium text-muted-foreground bg-secondary/60 px-2 py-1 rounded-full">
+            {format(new Date(), "EEEE, d 'de' MMM", { locale: ptBR })}
           </span>
         </div>
 
         {isLoading ? (
           <div className="space-y-3">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="bg-card shadow-card border rounded-2xl p-4 h-[72px] animate-pulse">
-                <div className="flex items-center gap-3">
-                  <div className="h-5 w-5 rounded-full bg-muted" />
+              <div key={i} className="bg-card shadow-sm rounded-[24px] p-5 h-[80px] animate-pulse">
+                <div className="flex items-center gap-4">
+                  <div className="h-6 w-6 rounded-full bg-muted" />
                   <div className="flex-1 space-y-2">
                     <div className="h-3 w-2/3 bg-muted rounded" />
                     <div className="h-2 w-1/3 bg-muted rounded" />
                   </div>
-                  <div className="h-5 w-16 bg-muted rounded-full" />
                 </div>
               </div>
             ))}
           </div>
         ) : groups.length === 0 ? (
-          <div className="bg-card shadow-card border rounded-2xl p-8 text-center">
-            <p className="text-sm text-muted-foreground">Sua agenda está vazia hoje</p>
-            <p className="text-xs text-muted-foreground/60 mt-1">Toque no + para adicionar uma tarefa</p>
+          <div className="bg-white shadow-sm rounded-[24px] p-8 text-center border-0 flex flex-col items-center justify-center min-h-[160px]">
+            <p className="text-sm font-medium text-foreground">Sua agenda está vazia hoje</p>
+            <p className="text-xs text-muted-foreground mt-1">Toque no + para adicionar uma tarefa</p>
           </div>
         ) : (
           groups.map((group) => (
-            <div key={group.label} className="space-y-2">
-              <p className="text-xs font-medium text-muted-foreground">{group.label}</p>
-              {group.tasks.map((task: any, idx: number) => {
-                const style = CAT_STYLES[task.category] || CAT_STYLES.pessoal;
-                const isDone = task.status === 'completed';
+            <div key={group.label} className="space-y-3 pt-2">
+              <p className="text-xs font-semibold text-foreground/70 tracking-wide">{group.label}</p>
+              
+              <div className="space-y-3">
+                {group.tasks.map((task: any, idx: number) => {
+                  const categoryObj = categories.find(c => c.name === task.category || c.name.toLowerCase() === task.category) || categories[0];
+                  const catColor = categoryObj?.color || '#000000';
+                  const catLabel = categoryObj?.name || 'Sem Categoria';
+                  const isDone = task.status === 'completed';
 
-                return (
-                  <div
-                    key={task.id}
-                    onClick={() => handleTaskClick(task)}
-                    style={{ animationDelay: `${idx * 50}ms` }}
-                    className={`bg-card shadow-card border rounded-2xl p-4 border-l-4 ${style.border} flex items-center gap-3 tap-bounce cursor-pointer
-                      transition-all duration-200 hover:shadow-card-hover hover:scale-[1.01]
-                      animate-fade-in ${isDone ? 'opacity-50' : ''}`}
-                  >
-                    {/* Complete toggle */}
-                    <button
-                      onClick={(e) => handleToggleComplete(e, task.id, task.status)}
-                      className={`flex-shrink-0 h-5 w-5 rounded-full border-2 flex items-center justify-center transition-all duration-300 ${
-                        isDone
-                          ? 'border-emerald-500 bg-emerald-500 text-white scale-110'
-                          : 'border-muted-foreground/30 hover:border-emerald-400 hover:scale-110'
-                      }`}
+                  return (
+                    <div
+                      key={task.id}
+                      onClick={() => handleTaskClick(task)}
+                      style={{ animationDelay: `${idx * 40}ms` }}
+                      className={`bg-white shadow-card border-0 rounded-[24px] p-5 flex items-start gap-4 tap-bounce cursor-pointer
+                        transition-all duration-300 hover:shadow-card-hover hover:-translate-y-0.5
+                        animate-fade-in ${isDone ? 'opacity-40 grayscale-[0.5]' : ''}`}
                     >
-                      {isDone && <CheckCircle className="h-3 w-3" />}
-                    </button>
+                      {/* Complete toggle - Larger for premium feel */}
+                      <button
+                        onClick={(e) => handleToggleComplete(e, task.id, task.status)}
+                        className={`flex-shrink-0 h-6 w-6 mt-0.5 rounded-full border-[2px] flex items-center justify-center transition-all duration-300 ${
+                          isDone
+                            ? 'border-emerald-500 bg-emerald-500 text-white scale-110 shadow-sm'
+                            : 'border-muted-foreground/30 hover:border-emerald-400 hover:scale-110'
+                        }`}
+                      >
+                        {isDone && <CheckCircle className="h-4 w-4" />}
+                      </button>
 
-                    {/* Content */}
-                    <div className="flex-1 min-w-0 space-y-1">
-                      <p className={`font-medium text-sm truncate ${isDone ? 'line-through' : ''}`}>
-                        {task.title}
-                      </p>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <span>
-                          {new Date(task.start_time).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                        {task.estimated_duration_minutes && (
-                          <span>· {task.estimated_duration_minutes} min</span>
-                        )}
-                        {task.location && (
-                          <span className="flex items-center gap-0.5">
-                            <MapPin className="h-3 w-3" />
-                            {task.location.length > 15 ? task.location.substring(0, 15) + '...' : task.location}
-                          </span>
-                        )}
+                      {/* Content */}
+                      <div className="flex-1 min-w-0 flex justify-between items-start gap-3">
+                        <div className="space-y-1.5 flex-1 min-w-0">
+                          <p className={`font-semibold text-base leading-tight truncate text-foreground ${isDone ? 'line-through' : ''}`}>
+                            {task.title}
+                          </p>
+                          <div className="flex items-center gap-2 text-[11px] font-medium text-muted-foreground">
+                            <span>
+                              {new Date(task.start_time).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                            {task.estimated_duration_minutes && (
+                              <span>· {task.estimated_duration_minutes}m</span>
+                            )}
+                            {task.location && (
+                              <span className="flex items-center gap-0.5 max-w-[100px] truncate">
+                                <span className="mx-1">·</span>
+                                <MapPin className="h-[10px] w-[10px]" />
+                                {task.location}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Minimalist Category Pill */}
+                        <div className="flex-shrink-0 flex items-center gap-1.5 bg-secondary/50 px-2 py-1 rounded-full">
+                          <div className="h-2 w-2 rounded-full shadow-sm" style={{ backgroundColor: catColor }} />
+                          <span className="text-[10px] font-semibold text-muted-foreground uppercase">{catLabel}</span>
+                        </div>
                       </div>
                     </div>
-
-                    {/* Category Badge */}
-                    <Badge variant="secondary" className={`${style.badge} border text-[10px] capitalize flex-shrink-0`}>
-                      {style.label}
-                    </Badge>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           ))
         )}
