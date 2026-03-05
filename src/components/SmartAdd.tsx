@@ -9,6 +9,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { format } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
 import { useCategories } from "@/hooks/useCategories";
+import { TaskType, WorkoutType, WorkoutIntensity } from "@/types/data";
 
 export const SmartAdd = () => {
   const { categories } = useCategories();
@@ -18,6 +19,13 @@ export const SmartAdd = () => {
   const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [time, setTime] = useState(format(new Date(), 'HH:mm'));
   const [duration, setDuration] = useState('');
+  
+  // Extension Fields
+  const [taskType, setTaskType] = useState<TaskType>('task');
+  const [workoutType, setWorkoutType] = useState<WorkoutType>('strength');
+  const [targetMuscle, setTargetMuscle] = useState('');
+  const [intensity, setIntensity] = useState<WorkoutIntensity>('medium');
+
   const [isLoading, setIsLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [conflictWarning, setConflictWarning] = useState<string | null>(null);
@@ -69,6 +77,11 @@ export const SmartAdd = () => {
         end_time: endTime,
         estimated_duration_minutes: durationMinutes,
         user_id: userId,
+        // Modifiers
+        task_type: taskType,
+        workout_type: taskType === 'workout' ? workoutType : null,
+        target_muscle_group: taskType === 'workout' ? targetMuscle : null,
+        intensity: taskType === 'workout' ? intensity : null
       });
 
       if (insertError) throw insertError;
@@ -83,6 +96,8 @@ export const SmartAdd = () => {
       setLocation('');
       setDuration('');
       setCategory('');
+      setTaskType('task');
+      setTargetMuscle('');
       setConflictWarning(null);
       setIsOpen(false);
       window.dispatchEvent(new Event('task-added'));
@@ -117,6 +132,28 @@ export const SmartAdd = () => {
             onChange={(e) => setTitle(e.target.value)}
             autoFocus
           />
+
+          {/* Type Toggle */}
+          <div className="flex bg-secondary/60 rounded-xl p-1">
+            <button
+              className={`flex-1 py-2 text-sm font-medium rounded-lg transition-colors ${taskType === 'task' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:bg-secondary/80'}`}
+              onClick={() => setTaskType('task')}
+            >
+              Tarefa Comum
+            </button>
+            <button
+              className={`flex-1 py-2 text-sm font-medium rounded-lg transition-colors flex items-center justify-center gap-1.5 ${taskType === 'workout' ? 'bg-[#f97316] text-white shadow-sm' : 'text-muted-foreground hover:bg-secondary/80'}`}
+              onClick={() => {
+                setTaskType('workout');
+                // Auto-select Workout category if exists
+                if (categories.some(c => c.name.toLowerCase() === 'treino')) {
+                  setCategory('Treino');
+                }
+              }}
+            >
+              🏋️ Treino
+            </button>
+          </div>
 
           {/* Conflict Warning Inline */}
           <AnimatePresence>
@@ -154,17 +191,8 @@ export const SmartAdd = () => {
                     key={cat.id}
                     type="button"
                     onClick={() => setCategory(cat.name)}
-                    className="px-3 py-2 rounded-2xl text-xs font-medium transition-all border tap-bounce"
-                    style={isSelected ? {
-                      borderColor: cat.color,
-                      backgroundColor: `${cat.color}15`,
-                      color: cat.color,
-                      boxShadow: `0 0 0 2px ${cat.color}33`
-                    } : {
-                      borderColor: 'transparent',
-                      backgroundColor: 'hsl(var(--secondary) / 0.5)',
-                      color: 'hsl(var(--muted-foreground))'
-                    }}
+                    className={`px-3 py-2 rounded-2xl text-xs font-medium transition-all border tap-bounce ${isSelected ? 'border-current bg-current/10' : 'border-transparent bg-secondary/50 text-muted-foreground'}`}
+                    style={isSelected ? { color: cat.color, borderColor: cat.color, backgroundColor: `${cat.color}15` } : undefined}
                   >
                     {cat.emoji} {cat.name}
                   </button>
@@ -238,6 +266,55 @@ export const SmartAdd = () => {
               />
             </div>
           </div>
+
+          {/* Conditional Workout Options */}
+          <AnimatePresence>
+            {taskType === 'workout' && (
+              <motion.div 
+                initial={{ opacity: 0, height: 0 }} 
+                animate={{ opacity: 1, height: 'auto' }} 
+                exit={{ opacity: 0, height: 0 }}
+                className="grid grid-cols-2 gap-3 mb-2"
+              >
+                <div className="space-y-1.5 col-span-2">
+                  <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Músculo/Foco</label>
+                  <Input
+                    placeholder="Ex: Costas e Bíceps"
+                    value={targetMuscle}
+                    onChange={(e) => setTargetMuscle(e.target.value)}
+                    className="text-sm h-11 border-0 bg-secondary/50 rounded-2xl"
+                  />
+                </div>
+                
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Tipo</label>
+                  <select 
+                    value={workoutType} 
+                    onChange={e => setWorkoutType(e.target.value as WorkoutType)}
+                    className="flex h-11 w-full items-center justify-between rounded-2xl border-0 bg-secondary/50 px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground outline-none"
+                  >
+                    <option value="strength">Musculação</option>
+                    <option value="cardio">Cardio</option>
+                    <option value="flexibility">Flexibilidade</option>
+                    <option value="sports">Esportes</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Intensidade</label>
+                  <select 
+                    value={intensity} 
+                    onChange={e => setIntensity(e.target.value as WorkoutIntensity)}
+                    className="flex h-11 w-full items-center justify-between rounded-2xl border-0 bg-secondary/50 px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground outline-none"
+                  >
+                    <option value="low">Leve</option>
+                    <option value="medium">Média</option>
+                    <option value="high">Intensa 🔥</option>
+                  </select>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Submit */}
           <Button

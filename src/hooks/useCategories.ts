@@ -36,12 +36,8 @@ export function useCategories() {
         return DEFAULT_CATEGORIES;
       }
 
-      // Se nÃ£o tiver nenhuma, retorna os defaults visualmente (nÃ£o salva no DB ainda)
-      if (!data || data.length === 0) {
-        return DEFAULT_CATEGORIES;
-      }
-
-      return data as Category[];
+      // Merge defaults with custom categories
+      return [...DEFAULT_CATEGORIES, ...(data || [])] as Category[];
     },
     enabled: !!user,
   });

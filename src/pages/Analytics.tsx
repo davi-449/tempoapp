@@ -45,6 +45,7 @@ const AnalyticsPage = () => {
       return new Date(t.end_time) < now;
     }).length;
     const rate = total > 0 ? Math.round((completed / total) * 100) : 0;
+    const workoutsCompleted = filteredTasks.filter((t: any) => t.status === "completed" && t.task_type === "workout").length;
 
     const byCategory = categories.map((cat) => ({
       name: cat.name,
@@ -84,7 +85,7 @@ const AnalyticsPage = () => {
     const days = period === "semana" ? 7 : period === "mes" ? 30 : 90;
     const dailyAvg = (completed / days).toFixed(1);
 
-    return { total, completed, overdue, rate, byCategory, weeklyTrend, streak, dailyAvg };
+    return { total, completed, overdue, rate, byCategory, weeklyTrend, streak, dailyAvg, workoutsCompleted };
   }, [allTasks, period, categories]);
 
   const suggestions = useMemo(() => {
@@ -155,6 +156,13 @@ const AnalyticsPage = () => {
               <CheckCircle className="h-5 w-5 text-blue-500" />
               <span className="text-3xl font-bold">{stats.dailyAvg}</span>
               <span className="text-[10px] text-muted-foreground">Média Diária (Período)</span>
+            </CardContent>
+          </Card>
+          <Card className="border-0 shadow-card hover:shadow-card-hover transition-all rounded-[24px]">
+            <CardContent className="p-4 flex flex-col items-center text-center gap-1">
+              <span className="text-3xl font-bold mt-2">💪</span>
+              <span className="text-2xl font-bold text-orange-500 mt-2">{stats.workoutsCompleted}</span>
+              <span className="text-[10px] text-muted-foreground">Treinos Concluídos</span>
             </CardContent>
           </Card>
         </div>

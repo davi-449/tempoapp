@@ -11,6 +11,7 @@ import AnalyticsPage from "./pages/Analytics";
 import ProfilePage from "./pages/Profile";
 import LoginPage from "./pages/Login";
 import NotFound from "./pages/NotFound";
+import CategoryView from "./pages/CategoryView";
 
 const queryClient = new QueryClient();
 
@@ -41,6 +42,7 @@ function AppRoutes() {
         <Route path="/calendario" element={<CalendarPage />} />
         <Route path="/analise" element={<AnalyticsPage />} />
         <Route path="/perfil" element={<ProfilePage />} />
+        <Route path="/categoria/:categoryName" element={<CategoryView />} />
         <Route path="/login" element={<Navigate to="/" replace />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
