@@ -16,17 +16,14 @@ interface AnimatedTabsProps {
   className?: string;
 }
 
-const AnimatedTabs = ({
-  tabs,
-  defaultTab,
-  className,
-}: AnimatedTabsProps) => {
-  const [activeTab, setActiveTab] = useState<string>(defaultTab || tabs[0]?.id);
+const AnimatedTabs = React.forwardRef<HTMLDivElement, AnimatedTabsProps>(
+  ({ tabs, defaultTab, className }, ref) => {
+    const [activeTab, setActiveTab] = useState<string>(defaultTab || tabs[0]?.id);
 
   if (!tabs?.length) return null;
 
   return (
-    <div className={cn("w-full flex flex-col gap-y-1", className)}>
+    <div ref={ref} className={cn("w-full flex flex-col gap-y-1", className)}>
       <div className="flex gap-2 flex-wrap bg-secondary/50 backdrop-blur-sm p-1.5 rounded-2xl">
         {tabs.map((tab) => (
           <button
@@ -79,6 +76,7 @@ const AnimatedTabs = ({
       </div>
     </div>
   );
-};
+});
+AnimatedTabs.displayName = "AnimatedTabs";
 
 export { AnimatedTabs };

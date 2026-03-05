@@ -25,6 +25,10 @@ export function WorkoutOnboarding({ category, onComplete }: WorkoutOnboardingPro
   const [days, setDays] = useState<number[]>([]);
   const [division, setDivision] = useState<string>('');
   const [duration, setDuration] = useState<number>(60);
+  
+  // New Metrics
+  const [weight, setWeight] = useState('');
+  const [height, setHeight] = useState('');
 
   const paginate = (newDirection: number) => {
     setDirection(newDirection);
@@ -41,33 +45,65 @@ export function WorkoutOnboarding({ category, onComplete }: WorkoutOnboardingPro
     try {
       if (days.length === 0) throw new Error("Selecione os dias de treino.");
 
+      const userRes = await supabase.auth.getUser();
+      const userId = userRes.data.user?.id;
+
+      // Cálculo de IMC básico
+      const w = parseFloat(weight);
+      const h = parseFloat(height) / 100;
+      const bmi = (w > 0 && h > 0) ? (w / (h * h)).toFixed(1) : null;
+
+      // 1. Atualizar ou Inserir a Categoria com UUID real
+      const currentSettings = (category as any).settings || {};
+      const newSettings = {
+         ...currentSettings,
+         isConfigured: true,
+         type: 'workout',
+         schedule: { days, division, duration },
+         healthMetrics: { weight, height, bmi }
+      };
+
+      let realCategoryId = category.id;
+      if (category.id.startsWith('default-')) {
+        const { data, error } = await (supabase as any).from('categories').insert({
+          name: category.name,
+          color: category.color,
+          emoji: category.emoji,
+          settings: newSettings,
+          user_id: userId
+        }).select().single();
+        if (error) throw error;
+        realCategoryId = data.id;
+      } else {
+        await (supabase as any).from('categories').update({ settings: newSettings }).eq('id', realCategoryId);
+      }
+
+      // 2. Gerar Tarefas com o realCategoryId
       const insertPayloads = [];
       const today = new Date();
-      // Look ahead 28 days (4 weeks)
+      
       for (let i = 0; i < 28; i++) {
         const targetDate = new Date(today);
         targetDate.setDate(today.getDate() + i);
         
-        // Se o dia da semana atual está nos dias selecionados
         if (days.includes(targetDate.getDay())) {
-           // Default to 18:00
            targetDate.setHours(18, 0, 0, 0);
 
            let titleBase = `Meu Treino: ${division}`;
            if (division === 'ABC') {
              const workoutDay = ['A (Peito/Tríceps)', 'B (Costas/Bíceps)', 'C (Pernas/Ombro)'];
-             // just a weak randomize for demo or pick by modulo
              titleBase = `Treino ${workoutDay[i % 3]}`;
            }
 
            insertPayloads.push({
              title: titleBase,
-             category: category.name,
+             category: category.name, // Keep string backward compat for UI if needed, but DB uses category_id primarily now if column exists. Wait, the DB only uses 'category' as string per the current schema, unless 'category_id' was added. Let's send both.
+             category_id: realCategoryId,
              status: 'pending',
              start_time: targetDate.toISOString(),
              estimated_duration_minutes: duration,
              task_type: 'workout',
-             user_id: (await supabase.auth.getUser()).data.user?.id
+             user_id: userId
            });
         }
       }
@@ -75,17 +111,6 @@ export function WorkoutOnboarding({ category, onComplete }: WorkoutOnboardingPro
       if (insertPayloads.length > 0) {
         await supabase.from('tasks').insert(insertPayloads);
       }
-
-      const currentSettings = (category as any).settings || {};
-      const newSettings = {
-         ...currentSettings,
-         isConfigured: true,
-         type: 'workout',
-         schedule: { days, division, duration }
-      };
-
-      // @ts-ignore
-      await (supabase as any).from('categories').update({ settings: newSettings }).eq('id', category.id);
       
       onComplete();
     } catch (e: any) {
@@ -108,7 +133,7 @@ export function WorkoutOnboarding({ category, onComplete }: WorkoutOnboardingPro
               Vamos construir seu corpo no <span style={{color: category.color}}>Treino</span>!
             </h2>
             <p className="text-muted-foreground text-sm max-w-[280px]">
-              Diga-me quais horas você vai dominar os pesos e eu montarei 4 semanas de treinos para você.
+              Diga-me suas medidas e horários. Montarei 4 semanas de treinos hiper focados pra você.
             </p>
             <Button size="lg" className="w-full mt-4 py-6 rounded-2xl" onClick={() => paginate(1)}>
                Montar Grade
@@ -116,8 +141,33 @@ export function WorkoutOnboarding({ category, onComplete }: WorkoutOnboardingPro
             </Button>
           </div>
         );
-      
+
       case 1:
+        return (
+           <div className="flex flex-col space-y-8 flex-1 py-10 h-full min-h-[400px]">
+             <div className="space-y-2 text-center">
+               <h2 className="text-2xl font-bold tracking-tight">Suas Métricas (Opcional)</h2>
+               <p className="text-muted-foreground text-sm">Usaremos para calcular evolução e baseline de saúde.</p>
+             </div>
+             <div className="flex items-center justify-between gap-4 mt-6">
+                <div className="flex-1 space-y-2">
+                   <label className="text-sm font-medium text-muted-foreground pl-1">Peso (kg)</label>
+                   <input type="number" placeholder="Ex: 75.5" value={weight} onChange={(e) => setWeight(e.target.value)} className="w-full p-4 rounded-xl border-2 bg-background font-medium text-lg text-center" />
+                </div>
+                <div className="flex-1 space-y-2">
+                   <label className="text-sm font-medium text-muted-foreground pl-1">Altura (cm)</label>
+                   <input type="number" placeholder="Ex: 180" value={height} onChange={(e) => setHeight(e.target.value)} className="w-full p-4 rounded-xl border-2 bg-background font-medium text-lg text-center" />
+                </div>
+             </div>
+             <div className="mt-auto pt-8">
+              <Button size="lg" className="w-full rounded-2xl py-6" onClick={() => paginate(1)}>
+                 Avançar <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </div>
+           </div>
+        );
+      
+      case 2:
         const weekDays = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
         return (
           <div className="flex flex-col space-y-8 flex-1 py-10 h-full min-h-[400px]">
@@ -148,7 +198,7 @@ export function WorkoutOnboarding({ category, onComplete }: WorkoutOnboardingPro
           </div>
         );
 
-      case 2:
+      case 3:
         const divs = ['Full Body', 'ABC', 'Push/Pull/Legs', 'Crossfit', 'Cardio'];
         return (
            <div className="flex flex-col space-y-8 flex-1 py-10 h-full min-h-[400px]">
@@ -166,7 +216,7 @@ export function WorkoutOnboarding({ category, onComplete }: WorkoutOnboardingPro
              </div>
              <div className="mt-auto pt-8">
               <Button size="lg" className="w-full rounded-2xl py-6" disabled={!division || isSubmitting} onClick={handleFinish}>
-                {isSubmitting ? <Loader2 className="animate-spin" /> : 'Finalizar Setup e Gerar Agenda'}
+                {isSubmitting ? <Loader2 className="animate-spin" /> : 'Mapear Minha Saúde e Finalizar'}
               </Button>
             </div>
            </div>

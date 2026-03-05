@@ -23,6 +23,7 @@ export function WorkOnboarding({ category, onComplete }: WorkOnboardingProps) {
 
   // Form State
   const [jobTitle, setJobTitle] = useState('');
+  const [companyName, setCompanyName] = useState('');
   const [days, setDays] = useState<number[]>([]);
   const [timeStart, setTimeStart] = useState('09:00');
   const [timeEnd, setTimeEnd] = useState('18:00');
@@ -42,6 +43,33 @@ export function WorkOnboarding({ category, onComplete }: WorkOnboardingProps) {
     try {
       if (days.length === 0) throw new Error("Selecione os dias úteis.");
 
+      const userRes = await supabase.auth.getUser();
+      const userId = userRes.data.user?.id;
+
+      // 1. Atualizar ou Inserir a Categoria com UUID real
+      const currentSettings = (category as any).settings || {};
+      const newSettings = {
+         ...currentSettings,
+         isConfigured: true,
+         type: 'work',
+         schedule: { days, jobTitle, companyName, timeStart, timeEnd }
+      };
+
+      let realCategoryId = category.id;
+      if (category.id.startsWith('default-')) {
+        const { data, error } = await (supabase as any).from('categories').insert({
+          name: category.name,
+          color: category.color,
+          emoji: category.emoji,
+          settings: newSettings,
+          user_id: userId
+        }).select().single();
+        if (error) throw error;
+        realCategoryId = data.id;
+      } else {
+        await (supabase as any).from('categories').update({ settings: newSettings }).eq('id', realCategoryId);
+      }
+
       const insertPayloads = [];
       const today = new Date();
       
@@ -60,15 +88,16 @@ export function WorkOnboarding({ category, onComplete }: WorkOnboardingProps) {
         if (days.includes(targetDate.getDay())) {
            targetDate.setHours(start.h, start.m, 0, 0);
 
-           const title = `Expediente: ${jobTitle || 'Trabalho'}`;
+           const title = `${jobTitle || 'Expediente'} @ ${companyName || 'Trabalho'}`;
            
            insertPayloads.push({
              title: title,
-             category: category.name,
+             category: category.name, // String keep
+             category_id: realCategoryId,
              status: 'pending',
              start_time: targetDate.toISOString(),
              task_type: 'task',
-             user_id: (await supabase.auth.getUser()).data.user?.id
+             user_id: userId
            });
         }
       }
@@ -76,17 +105,6 @@ export function WorkOnboarding({ category, onComplete }: WorkOnboardingProps) {
       if (insertPayloads.length > 0) {
         await supabase.from('tasks').insert(insertPayloads);
       }
-
-      const currentSettings = (category as any).settings || {};
-      const newSettings = {
-         ...currentSettings,
-         isConfigured: true,
-         type: 'work',
-         schedule: { days, jobTitle, timeStart, timeEnd }
-      };
-
-      // @ts-ignore
-      await (supabase as any).from('categories').update({ settings: newSettings }).eq('id', category.id);
       
       onComplete();
     } catch (e: any) {
@@ -106,10 +124,10 @@ export function WorkOnboarding({ category, onComplete }: WorkOnboardingProps) {
               <span className="text-4xl">{category.emoji}</span>
             </div>
             <h2 className="text-2xl font-bold tracking-tight text-balance">
-              Setup de <span style={{color: category.color}}>Trabalho</span> Automático
+              Setup de <span style={{color: category.color}}>Carreira</span> Automático
             </h2>
             <p className="text-muted-foreground text-sm max-w-[280px]">
-              Vou bloquear sua agenda para proteger seu expediente com exatidão.
+              Vou bloquear sua agenda para proteger seu expediente com exatidão e formalidade.
             </p>
             <Button size="lg" className="w-full mt-4 py-6 rounded-2xl" onClick={() => paginate(1)}>
                Começar <ArrowRight className="ml-2 h-4 w-4" />
@@ -119,13 +137,19 @@ export function WorkOnboarding({ category, onComplete }: WorkOnboardingProps) {
       
       case 1:
         return (
-          <div className="flex flex-col space-y-8 flex-1 py-10 h-full min-h-[400px]">
+          <div className="flex flex-col space-y-6 flex-1 py-10 h-full min-h-[400px]">
              <div className="space-y-2 text-center">
-               <h2 className="text-2xl font-bold tracking-tight">Qual sua função / cargo principal?</h2>
+               <h2 className="text-2xl font-bold tracking-tight">Onde você atua?</h2>
              </div>
-             <input type="text" autoFocus className="w-full text-center text-xl bg-transparent border-b-2 font-medium focus:outline-none focus:border-foreground pb-2 placeholder:text-muted-foreground/40 transition-colors" placeholder="Ex: Desenvolvedor Senior" value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} />
+             
+             <div className="space-y-4 w-full px-2">
+                <input type="text" autoFocus className="w-full text-center text-xl bg-transparent border-b-2 font-medium focus:outline-none focus:border-foreground pb-2 placeholder:text-muted-foreground/40 transition-colors" placeholder="Empresa (Ex: Google)" value={companyName} onChange={(e) => setCompanyName(e.target.value)} />
+                
+                <input type="text" className="w-full mt-6 text-center text-xl bg-transparent border-b-2 font-medium focus:outline-none focus:border-foreground pb-2 placeholder:text-muted-foreground/40 transition-colors" placeholder="Cargo (Ex: Desenvolvedor)" value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} />
+             </div>
+
              <div className="mt-auto pt-8">
-              <Button size="lg" className="w-full rounded-2xl py-6" disabled={!jobTitle.trim()} onClick={() => paginate(1)}>
+              <Button size="lg" className="w-full rounded-2xl py-6" disabled={!jobTitle.trim() && !companyName.trim()} onClick={() => paginate(1)}>
                 Próximo <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </div>
@@ -172,7 +196,7 @@ export function WorkOnboarding({ category, onComplete }: WorkOnboardingProps) {
              </div>
              <div className="mt-auto pt-8">
               <Button size="lg" className="w-full rounded-2xl py-6" disabled={isSubmitting} onClick={handleFinish}>
-                {isSubmitting ? <Loader2 className="animate-spin" /> : 'Finalizar Setup'}
+                {isSubmitting ? <Loader2 className="animate-spin" /> : 'Oficializar'}
               </Button>
             </div>
            </div>
