@@ -16,6 +16,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Card, CardContent } from "@/components/ui/card";
+import { GlobalOnboarding } from "@/components/GlobalOnboarding";
 
 const CATEGORY_CARD_STYLES = [
   { name: "Pessoal", emoji: "🏠", bg: "cat-pessoal", key: "pessoal" },
@@ -43,6 +44,20 @@ const Index = () => {
   const [refreshKey, setRefreshKey] = useState(0);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const { categories } = useCategories();
+  const [showOnboarding, setShowOnboarding] = useState(false);
+
+  useEffect(() => {
+    // Verifica se é o primeiro acesso do usuário
+    const hasSeenTutorial = localStorage.getItem('has_seen_tutorial');
+    if (!hasSeenTutorial) {
+      setShowOnboarding(true);
+    }
+  }, []);
+
+  const handleCompleteOnboarding = () => {
+    localStorage.setItem('has_seen_tutorial', 'true');
+    setShowOnboarding(false);
+  };
 
   useEffect(() => {
     async function getProfile() {
@@ -112,6 +127,8 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background relative pb-24">
+      {showOnboarding && <GlobalOnboarding onComplete={handleCompleteOnboarding} />}
+      
       {/* Header */}
       <header className="sticky top-0 z-30 w-full glass-header border-b border-border/40">
         <div className="container flex h-16 max-w-lg items-center px-4 mx-auto">

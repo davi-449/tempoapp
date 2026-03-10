@@ -25,8 +25,10 @@ export function WorkoutOnboarding({ category, onComplete }: WorkoutOnboardingPro
   const [days, setDays] = useState<number[]>([]);
   const [division, setDivision] = useState<string>('');
   const [duration, setDuration] = useState<number>(60);
+  const [workoutTime, setWorkoutTime] = useState<string>('18:00');
   const [weight, setWeight] = useState('');
   const [height, setHeight] = useState('');
+  const [age, setAge] = useState('');
 
   const paginate = (newDirection: number) => {
     setDirection(newDirection);
@@ -39,7 +41,7 @@ export function WorkoutOnboarding({ category, onComplete }: WorkoutOnboardingPro
 
   const handleFinish = async () => {
     setIsSubmitting(true);
-    
+
     try {
       if (days.length === 0) throw new Error("Selecione os dias de treino.");
 
@@ -48,6 +50,7 @@ export function WorkoutOnboarding({ category, onComplete }: WorkoutOnboardingPro
 
       const w = parseFloat(weight);
       const h = parseFloat(height) / 100;
+      const a = parseInt(age);
       const bmi = (w > 0 && h > 0) ? (w / (h * h)).toFixed(1) : null;
 
       // Resolve real category ID (Ghost Insert)
@@ -66,12 +69,12 @@ export function WorkoutOnboarding({ category, onComplete }: WorkoutOnboardingPro
 
       // Persistir settings no DB (resiliente)
       try {
-        await (supabase as any).from('categories').update({ 
+        await (supabase as any).from('categories').update({
           settings: {
             isConfigured: true,
             type: 'workout',
-            schedule: { days, division, duration },
-            healthMetrics: { weight, height, bmi }
+            schedule: { days, division, duration, time: workoutTime },
+            healthMetrics: { weight, height, age, bmi }
           }
         }).eq('id', realCategoryId);
       } catch { /* coluna settings pode não existir ainda */ }
@@ -81,8 +84,8 @@ export function WorkoutOnboarding({ category, onComplete }: WorkoutOnboardingPro
       configured[category.id] = {
         isConfigured: true,
         type: 'workout',
-        schedule: { days, division, duration },
-        healthMetrics: { weight, height, bmi }
+        schedule: { days, division, duration, time: workoutTime },
+        healthMetrics: { weight, height, age, bmi }
       };
       localStorage.setItem('configured_categories', JSON.stringify(configured));
 
@@ -90,17 +93,31 @@ export function WorkoutOnboarding({ category, onComplete }: WorkoutOnboardingPro
       const insertPayloads: any[] = [];
       const today = new Date();
       
+      const [hours, minutes] = workoutTime.split(':').map(Number);
+      
+      let workoutCounter = 0;
+
       for (let i = 0; i < 28; i++) {
         const targetDate = new Date(today);
         targetDate.setDate(today.getDate() + i);
-        
+
         if (days.includes(targetDate.getDay())) {
-           targetDate.setHours(18, 0, 0, 0);
-           let titleBase = `Meu Treino: ${division}`;
+           targetDate.setHours(hours, minutes, 0, 0);
+           let titleBase = `Treino: ${division}`;
+           
            if (division === 'ABC') {
              const workoutDay = ['A (Peito/Tríceps)', 'B (Costas/Bíceps)', 'C (Pernas/Ombro)'];
-             titleBase = `Treino ${workoutDay[i % 3]}`;
+             titleBase = `Treino ${workoutDay[workoutCounter % 3]}`;
+           } else if (division === 'Push/Pull/Legs') {
+             const workoutDay = ['Push (Empurrar)', 'Pull (Puxar)', 'Legs (Pernas)'];
+             titleBase = `Treino ${workoutDay[workoutCounter % 3]}`;
+           } else if (division === 'ABCD') {
+             const workoutDay = ['A (Peito/Ombro)', 'B (Costas/Abdômen)', 'C (Pernas/Panturrilha)', 'D (Braços)'];
+             titleBase = `Treino ${workoutDay[workoutCounter % 4]}`;
            }
+           
+           workoutCounter++;
+           
            insertPayloads.push({
              title: titleBase,
              category: category.name,
@@ -116,7 +133,7 @@ export function WorkoutOnboarding({ category, onComplete }: WorkoutOnboardingPro
         const { error } = await supabase.from('tasks').insert(insertPayloads);
         if (error) console.error('Task insert error:', error);
       }
-      
+
       onComplete();
     } catch (e: any) {
       console.error(e);
@@ -140,7 +157,7 @@ export function WorkoutOnboarding({ category, onComplete }: WorkoutOnboardingPro
             <p className="text-muted-foreground text-sm max-w-[280px]">
               Diga-me suas medidas e horários. Montarei 4 semanas de treinos hiper focados pra você.
             </p>
-            <Button size="lg" className="w-full mt-4 py-6 rounded-2xl" onClick={() => paginate(1)}>
+            <Button size="lg" className="w-full mt-4 py-6 rounded-2xl font-bold text-lg shadow-lg shadow-primary/30 transition-all hover:scale-[1.02] active:scale-95" onClick={() => paginate(1)}>
                Montar Grade <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           </div>
@@ -153,24 +170,30 @@ export function WorkoutOnboarding({ category, onComplete }: WorkoutOnboardingPro
                <h2 className="text-2xl font-bold tracking-tight">Suas Métricas (Opcional)</h2>
                <p className="text-muted-foreground text-sm">Usaremos para calcular evolução e baseline de saúde.</p>
              </div>
-             <div className="flex items-center justify-between gap-4 mt-6">
-                <div className="flex-1 space-y-2">
-                   <label className="text-sm font-medium text-muted-foreground pl-1">Peso (kg)</label>
-                   <input type="number" placeholder="Ex: 75.5" value={weight} onChange={(e) => setWeight(e.target.value)} className="w-full p-4 rounded-xl border-2 bg-background font-medium text-lg text-center" />
+             <div className="flex flex-col gap-4 mt-6">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex-1 space-y-2">
+                     <label className="text-sm font-medium text-muted-foreground pl-1">Peso (kg)</label>
+                     <input type="number" placeholder="Ex: 75.5" value={weight} onChange={(e) => setWeight(e.target.value)} className="w-full p-4 rounded-2xl border-2 border-border/50 bg-secondary/30 font-bold text-xl text-center focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/20 transition-all shadow-sm" />
+                  </div>
+                  <div className="flex-1 space-y-2">
+                     <label className="text-sm font-medium text-muted-foreground pl-1">Altura (cm)</label>
+                     <input type="number" placeholder="Ex: 180" value={height} onChange={(e) => setHeight(e.target.value)} className="w-full p-4 rounded-2xl border-2 border-border/50 bg-secondary/30 font-bold text-xl text-center focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/20 transition-all shadow-sm" />
+                  </div>
                 </div>
-                <div className="flex-1 space-y-2">
-                   <label className="text-sm font-medium text-muted-foreground pl-1">Altura (cm)</label>
-                   <input type="number" placeholder="Ex: 180" value={height} onChange={(e) => setHeight(e.target.value)} className="w-full p-4 rounded-xl border-2 bg-background font-medium text-lg text-center" />
+                <div className="space-y-2">
+                   <label className="text-sm font-medium text-muted-foreground pl-1">Idade</label>
+                   <input type="number" placeholder="Ex: 25" value={age} onChange={(e) => setAge(e.target.value)} className="w-full p-4 rounded-2xl border-2 border-border/50 bg-secondary/30 font-bold text-xl text-center focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/20 transition-all shadow-sm" />
                 </div>
              </div>
              <div className="mt-auto pt-8">
-              <Button size="lg" className="w-full rounded-2xl py-6" onClick={() => paginate(1)}>
+              <Button size="lg" className="w-full rounded-2xl py-6 font-bold text-lg shadow-lg shadow-primary/30 transition-all hover:scale-[1.02] active:scale-95" onClick={() => paginate(1)}>
                  Avançar <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </div>
            </div>
         );
-      
+
       case 2:
         const weekDays = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
         return (
@@ -181,13 +204,13 @@ export function WorkoutOnboarding({ category, onComplete }: WorkoutOnboardingPro
              </div>
              <div className="flex flex-wrap gap-3 justify-center mt-4">
                 {weekDays.map((d, index) => (
-                  <button key={d} onClick={() => toggleDay(index)} className={`h-14 w-14 rounded-full font-medium border-2 transition-all ${days.includes(index) ? 'border-foreground bg-foreground text-background scale-105 shadow-xl' : 'border-border/50 bg-white text-muted-foreground hover:border-foreground/30'}`}>
+                  <button key={d} onClick={() => toggleDay(index)} className={`h-14 w-14 rounded-full font-medium border-2 transition-all ${days.includes(index) ? 'border-primary bg-primary text-primary-foreground scale-110 shadow-lg shadow-primary/40' : 'border-border/50 bg-secondary/40 text-muted-foreground hover:border-primary/50 hover:bg-secondary/60'}`}>
                     {d}
                   </button>
                 ))}
              </div>
              <div className="mt-auto pt-8">
-              <Button size="lg" className="w-full rounded-2xl py-6" disabled={days.length === 0} onClick={() => paginate(1)}>
+              <Button size="lg" className="w-full rounded-2xl py-6 font-bold text-lg shadow-lg shadow-primary/30 transition-all hover:scale-[1.02] active:scale-95" disabled={days.length === 0} onClick={() => paginate(1)}>
                 Próximo <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </div>
@@ -195,7 +218,30 @@ export function WorkoutOnboarding({ category, onComplete }: WorkoutOnboardingPro
         );
 
       case 3:
-        const divs = ['Full Body', 'ABC', 'Push/Pull/Legs', 'Crossfit', 'Cardio'];
+        return (
+           <div className="flex flex-col space-y-8 flex-1 py-10 h-full min-h-[400px]">
+             <div className="space-y-2 text-center">
+               <h2 className="text-2xl font-bold tracking-tight">Qual o horário do treino?</h2>
+               <p className="text-muted-foreground text-sm">Defina o horário padrão para os seus treinos.</p>
+             </div>
+             <div className="flex justify-center mt-6">
+                <input 
+                  type="time" 
+                  value={workoutTime} 
+                  onChange={(e) => setWorkoutTime(e.target.value)} 
+                  className="p-4 rounded-2xl border-2 border-border/50 bg-secondary/30 font-bold text-4xl text-center w-48 focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/20 transition-all shadow-sm" 
+                />
+             </div>
+             <div className="mt-auto pt-8">
+              <Button size="lg" className="w-full rounded-2xl py-6 font-bold text-lg shadow-lg shadow-primary/30 transition-all hover:scale-[1.02] active:scale-95" onClick={() => paginate(1)}>
+                Próximo <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </div>
+           </div>
+        );
+
+      case 4:
+        const divs = ['Full Body', 'ABC', 'ABCD', 'Push/Pull/Legs', 'Crossfit', 'Cardio'];
         return (
            <div className="flex flex-col space-y-8 flex-1 py-10 h-full min-h-[400px]">
              <div className="space-y-2 text-center">
@@ -204,14 +250,14 @@ export function WorkoutOnboarding({ category, onComplete }: WorkoutOnboardingPro
              </div>
              <div className="grid grid-cols-2 gap-3 mt-4">
                 {divs.map(d => (
-                  <button key={d} onClick={() => setDivision(d)} 
-                    className={`py-4 rounded-2xl font-medium border-2 transition-all ${division === d ? 'border-foreground bg-foreground text-background scale-[1.02] shadow-xl' : 'border-border/50 bg-white text-muted-foreground hover:border-foreground/30'}`}>
+                  <button key={d} onClick={() => setDivision(d)}
+                    className={`py-4 rounded-2xl font-medium border-2 transition-all ${division === d ? 'border-primary bg-primary text-primary-foreground scale-[1.03] shadow-lg shadow-primary/40' : 'border-border/50 bg-secondary/40 text-muted-foreground hover:border-primary/50 hover:bg-secondary/60'}`}>
                     {d}
                   </button>
                 ))}
              </div>
              <div className="mt-auto pt-8">
-              <Button size="lg" className="w-full rounded-2xl py-6" disabled={!division || isSubmitting} onClick={handleFinish}>
+              <Button size="lg" className="w-full rounded-2xl py-6 font-bold text-lg shadow-lg shadow-primary/30 transition-all hover:scale-[1.02] active:scale-95" disabled={!division || isSubmitting} onClick={handleFinish}>
                 {isSubmitting ? <Loader2 className="animate-spin" /> : 'Mapear Minha Saúde e Finalizar'}
               </Button>
             </div>

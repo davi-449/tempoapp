@@ -119,7 +119,7 @@ export function GeneralOnboarding({ category, onComplete }: GeneralOnboardingPro
             <p className="text-muted-foreground text-sm max-w-[280px]">
               Para economizar seu tempo, vou configurar algumas tarefas semanais automaticamente pra você.
             </p>
-            <Button size="lg" className="w-full mt-4 py-6 rounded-2xl" onClick={() => paginate(1)}>
+            <Button size="lg" className="w-full mt-4 py-6 rounded-2xl font-bold text-lg shadow-lg shadow-primary/30 transition-all hover:scale-[1.02] active:scale-95" onClick={() => paginate(1)}>
               Começar Setup <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           </div>
@@ -132,9 +132,9 @@ export function GeneralOnboarding({ category, onComplete }: GeneralOnboardingPro
                <h2 className="text-2xl font-bold tracking-tight">Qual sua meta principal?</h2>
                <p className="text-muted-foreground text-sm">Resuma o que deseja alcançar.</p>
             </div>
-            <input type="text" autoFocus className="w-full text-center text-xl bg-transparent border-b-2 font-medium focus:outline-none focus:border-foreground pb-2 placeholder:text-muted-foreground/40 transition-colors" placeholder="Ex: Evoluir hoje" value={goal} onChange={(e) => setGoal(e.target.value)} />
+            <input type="text" autoFocus className="w-full text-center text-2xl bg-transparent border-b-2 border-border/50 font-bold focus:outline-none focus:border-primary pb-3 placeholder:text-muted-foreground/30 transition-all" placeholder="Ex: Evoluir hoje" value={goal} onChange={(e) => setGoal(e.target.value)} />
             <div className="mt-auto pt-8">
-              <Button size="lg" className="w-full rounded-2xl py-6" disabled={!goal.trim()} onClick={() => paginate(1)}>
+              <Button size="lg" className="w-full rounded-2xl py-6 font-bold text-lg shadow-lg shadow-primary/30 transition-all hover:scale-[1.02] active:scale-95" disabled={!goal.trim()} onClick={() => paginate(1)}>
                 Próximo <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </div>
@@ -151,13 +151,13 @@ export function GeneralOnboarding({ category, onComplete }: GeneralOnboardingPro
              </div>
              <div className="grid grid-cols-2 gap-3 mt-4">
                 {freqs.map(f => (
-                  <button key={f} onClick={() => setFrequency(f as RoutineFrequency)} className={`py-4 rounded-2xl font-medium border-2 transition-all ${frequency === f ? 'border-foreground bg-foreground text-background scale-[1.02] shadow-xl' : 'border-border/50 bg-white text-muted-foreground hover:border-foreground/30'}`}>
+                  <button key={f} onClick={() => setFrequency(f as RoutineFrequency)} className={`py-4 rounded-2xl font-medium border-2 transition-all ${frequency === f ? 'border-primary bg-primary text-primary-foreground scale-[1.03] shadow-lg shadow-primary/40' : 'border-border/50 bg-secondary/40 text-muted-foreground hover:border-primary/50 hover:bg-secondary/60'}`}>
                     {f === 'daily' ? 'Todo dia' : f + ' na semana'}
                   </button>
                 ))}
              </div>
              <div className="mt-auto pt-8">
-              <Button size="lg" className="w-full rounded-2xl py-6" disabled={!frequency || isSubmitting} onClick={handleFinish}>
+              <Button size="lg" className="w-full rounded-2xl py-6 font-bold text-lg shadow-lg shadow-primary/30 transition-all hover:scale-[1.02] active:scale-95" disabled={!frequency || isSubmitting} onClick={handleFinish}>
                 {isSubmitting ? <Loader2 className="animate-spin" /> : 'Finalizar Setup'}
               </Button>
             </div>

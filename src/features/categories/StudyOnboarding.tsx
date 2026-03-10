@@ -61,6 +61,10 @@ export function StudyOnboarding({ category, onComplete }: StudyOnboardingProps) 
     }));
   };
 
+  const updateSubjectTime = (subjId: string, newTime: string) => {
+    setSubjects(prev => prev.map(s => s.id === subjId ? { ...s, startTime: newTime } : s));
+  };
+
   const handleFinish = async () => {
     setIsSubmitting(true);
 
@@ -172,7 +176,7 @@ export function StudyOnboarding({ category, onComplete }: StudyOnboardingProps) 
             <p className="text-muted-foreground text-sm max-w-[280px]">
               Informe suas matérias, horários reais, e professores. Monto sua agenda completa.
             </p>
-            <Button size="lg" className="w-full mt-4 py-6 rounded-2xl" onClick={() => paginate(1)}>
+            <Button size="lg" className="w-full mt-4 py-6 rounded-2xl font-bold text-lg shadow-lg shadow-primary/30 transition-all hover:scale-[1.02] active:scale-95" onClick={() => paginate(1)}>
               Montar Grade <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           </div>
@@ -185,9 +189,9 @@ export function StudyOnboarding({ category, onComplete }: StudyOnboardingProps) 
               <h2 className="text-2xl font-bold tracking-tight">Qual sua Instituição?</h2>
               <p className="text-muted-foreground text-sm">Onde você estuda.</p>
             </div>
-            <input type="text" autoFocus className="w-full text-center text-xl bg-transparent border-b-2 font-medium focus:outline-none focus:border-foreground pb-2 placeholder:text-muted-foreground/40 transition-colors" placeholder="Ex: USP / ETEC / Fatec" value={institution} onChange={(e) => setInstitution(e.target.value)} />
+            <input type="text" autoFocus className="w-full text-center text-2xl bg-transparent border-b-2 border-border/50 font-bold focus:outline-none focus:border-primary pb-3 placeholder:text-muted-foreground/30 transition-all" placeholder="Ex: USP / ETEC / Fatec" value={institution} onChange={(e) => setInstitution(e.target.value)} />
             <div className="mt-auto pt-8">
-              <Button size="lg" className="w-full rounded-2xl py-6" disabled={!institution.trim()} onClick={() => paginate(1)}>
+              <Button size="lg" className="w-full rounded-2xl py-6 font-bold text-lg shadow-lg shadow-primary/30 transition-all hover:scale-[1.02] active:scale-95" disabled={!institution.trim()} onClick={() => paginate(1)}>
                 Próximo <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </div>
@@ -202,30 +206,36 @@ export function StudyOnboarding({ category, onComplete }: StudyOnboardingProps) 
               <p className="text-muted-foreground text-xs">Adicione cada matéria com horário e professor.</p>
             </div>
             <div className="flex flex-col gap-2 shrink-0">
-              <input type="text" className="w-full p-3 rounded-xl border-2 bg-background font-medium focus:border-foreground outline-none" placeholder="Nome da Matéria..." value={tempName} onChange={(e) => setTempName(e.target.value)} />
+              <input type="text" className="w-full p-4 rounded-2xl border-2 border-border/50 bg-secondary/30 font-medium focus:border-primary focus:ring-4 focus:ring-primary/20 outline-none transition-all" placeholder="Nome da Matéria..." value={tempName} onChange={(e) => setTempName(e.target.value)} />
               <div className="flex gap-2">
-                <input type="text" className="flex-1 p-3 rounded-xl border-2 bg-background font-medium focus:border-foreground outline-none text-sm" placeholder="Professor (Opcional)" value={tempProf} onChange={(e) => setTempProf(e.target.value)} />
+                <input type="text" className="flex-1 p-4 rounded-2xl border-2 border-border/50 bg-secondary/30 font-medium focus:border-primary focus:ring-4 focus:ring-primary/20 outline-none text-sm transition-all" placeholder="Professor (Opcional)" value={tempProf} onChange={(e) => setTempProf(e.target.value)} />
                 <div className="flex items-center gap-1">
                   <label className="text-[10px] text-muted-foreground whitespace-nowrap">Início:</label>
-                  <input type="time" className="p-2 rounded-xl border-2 bg-background font-medium text-sm w-[90px]" value={tempTime} onChange={(e) => setTempTime(e.target.value)} />
+                  <input type="time" className="p-3 rounded-2xl border-2 border-border/50 bg-secondary/30 font-medium text-sm w-[100px] focus:border-primary focus:ring-4 focus:ring-primary/20 outline-none transition-all" value={tempTime} onChange={(e) => setTempTime(e.target.value)} />
                 </div>
               </div>
               <Button onClick={addSubject} disabled={!tempName} className="rounded-xl w-full"><Plus className="w-4 h-4 mr-1" /> Adicionar</Button>
             </div>
             <div className="flex-1 overflow-y-auto mt-4 space-y-2 pr-1 pb-10">
               {subjects.map(s => (
-                <div key={s.id} className="p-3 bg-secondary/30 border border-border/40 rounded-xl flex items-center justify-between">
-                  <div className="min-w-0 pr-2">
-                    <p className="font-semibold text-sm truncate">{s.name} <span className="text-xs font-normal text-muted-foreground">· {s.startTime}</span></p>
-                    {s.professor && <p className="text-xs text-muted-foreground truncate">Prof. {s.professor}</p>}
+                <div key={s.id} className="p-3 bg-secondary/30 border border-border/40 rounded-xl flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <div className="min-w-0 pr-2">
+                      <p className="font-semibold text-sm truncate">{s.name}</p>
+                      {s.professor && <p className="text-xs text-muted-foreground truncate">Prof. {s.professor}</p>}
+                    </div>
+                    <button onClick={() => setSubjects(prev => prev.filter(x => x.id !== s.id))} className="text-rose-500/70 hover:text-rose-500 p-2"><Trash2 className="w-4 h-4" /></button>
                   </div>
-                  <button onClick={() => setSubjects(prev => prev.filter(x => x.id !== s.id))} className="text-rose-500/70 hover:text-rose-500 p-2"><Trash2 className="w-4 h-4" /></button>
+                  <div className="flex items-center gap-2 mt-1">
+                    <label className="text-xs text-muted-foreground">Horário:</label>
+                    <input type="time" value={s.startTime} onChange={(e) => updateSubjectTime(s.id, e.target.value)} className="p-1 rounded border bg-background text-xs" />
+                  </div>
                 </div>
               ))}
               {subjects.length === 0 && <p className="text-center text-sm text-muted-foreground mt-4 italic">Nenhuma adicionada ainda.</p>}
             </div>
             <div className="shrink-0 pt-4 bg-background mt-auto">
-              <Button size="lg" className="w-full rounded-2xl py-6" disabled={subjects.length === 0} onClick={() => paginate(1)}>
+              <Button size="lg" className="w-full rounded-2xl py-6 font-bold text-lg shadow-lg shadow-primary/30 transition-all hover:scale-[1.02] active:scale-95" disabled={subjects.length === 0} onClick={() => paginate(1)}>
                 Mapear Dias <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </div>
@@ -257,7 +267,7 @@ export function StudyOnboarding({ category, onComplete }: StudyOnboardingProps) 
               ))}
             </div>
             <div className="shrink-0 pt-6 mt-auto">
-              <Button size="lg" className="w-full rounded-2xl py-6" onClick={() => paginate(1)}>
+              <Button size="lg" className="w-full rounded-2xl py-6 font-bold text-lg shadow-lg shadow-primary/30 transition-all hover:scale-[1.02] active:scale-95" onClick={() => paginate(1)}>
                 Avançar <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </div>
@@ -294,7 +304,7 @@ export function StudyOnboarding({ category, onComplete }: StudyOnboardingProps) 
               )}
             </div>
             <div className="mt-auto pt-8">
-              <Button size="lg" className="w-full rounded-2xl py-6" disabled={isSubmitting} onClick={handleFinish}>
+              <Button size="lg" className="w-full rounded-2xl py-6 font-bold text-lg shadow-lg shadow-primary/30 transition-all hover:scale-[1.02] active:scale-95" disabled={isSubmitting} onClick={handleFinish}>
                 {isSubmitting ? <Loader2 className="animate-spin" /> : 'Finalizar Agendamento'}
               </Button>
             </div>
